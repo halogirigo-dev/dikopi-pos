@@ -12,9 +12,11 @@ export default function ProductsClient({ categories, products: initial }: { cate
   const [products, setProducts] = useState(initial);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
-  const [form, setForm] = useState({ name: "", category_id: "", selling_price: "", cost_price: "", is_available: true });
+  const [form, setForm] = useState({ name: "", category_id: "", selling_price: "", cost_price: "", image_url: "", is_available: true });
   const [breakdown, setBreakdown] = useState<{name:string,cost:string}[]>([]);
   const [showCalc, setShowCalc] = useState(false);
+  const [search, setSearch] = useState("");
+  const [error, setError] = useState("");
 
   const margin = form.selling_price && form.cost_price ? ((Number(form.selling_price)-Number(form.cost_price))/Number(form.selling_price)*100) : 0;
   const status = getMarginStatus(margin);
@@ -22,31 +24,42 @@ export default function ProductsClient({ categories, products: initial }: { cate
 
   function openCreate() {
     setEditing(null);
-    setForm({ name: "", category_id: categories[0]?.id || "", selling_price: "", cost_price: "", is_available: true });
+    setForm({ name: "", category_id: categories[0]?.id || "", selling_price: "", cost_price: "", image_url: "", is_available: true });
     setBreakdown([]);
     setShowCalc(false);
+    setError("");
     setShowForm(true);
   }
   function openEdit(p: Product) {
     setEditing(p);
-    setForm({ name: p.name, category_id: p.category_id, selling_price: String(p.selling_price), cost_price: String(p.cost_price), is_available: p.is_available });
+    setForm({ name: p.name, category_id: p.category_id, selling_price: String(p.selling_price), cost_price: String(p.cost_price), image_url: p.image_url || "", is_available: p.is_available });
     try { const bd = p.hpp_breakdown ? JSON.parse(p.hpp_breakdown) : []; setBreakdown(bd.map((b:any)=>({name:b.name,cost:String(b.cost)}))); } catch { setBreakdown([]); }
+    setError("");
     setShowForm(true);
   }
 
   async function submit() {
+    setError("");
+    if (!form.name.trim()) return setError("Nama produk wajib diisi");
+    if (!form.category_id) return setError("Kategori wajib dipilih");
+    if (!form.selling_price || Number(form.selling_price) <= 0) return setError("Harga jual harus > 0");
+    if (form.cost_price === "" || Number(form.cost_price) < 0) return setError("HPP harus >= 0");
     const payload = {
-      name: form.name,
+      name: form.name.trim(),
       category_id: form.category_id,
       selling_price: Number(form.selling_price),
       cost_price: Number(form.cost_price),
       hpp_breakdown: breakdown.length ? breakdown.map(b=>({name:b.name,cost:Number(b.cost)})) : null,
+      image_url: form.image_url.trim() || null,
       is_available: form.is_available
     };
     const url = editing ? `/api/products/${editing.id}` : "/api/products";
     const res = await fetch(url, { method: editing ? "PUT" : "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(payload)});
     if (res.ok) location.reload();
-    else alert(await res.text());
+    else {
+      const txt = await res.text();
+      setError(txt);
+    }
   }
 
   async function del(id: string) {
@@ -55,16 +68,29 @@ export default function ProductsClient({ categories, products: initial }: { cate
     location.reload();
   }
 
+  const filteredProducts = products.filter(p=> {
+    if (!search) return true;
+    return p.name.toLowerCase().includes(search.toLowerCase()) || p.category.name.toLowerCase().includes(search.toLowerCase());
+  });
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h1 className="text-xl font-bold">Products</h1>
-        <Button onClick={openCreate}>+ Produk</Button>
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
+        <h1 className="text-xl font-bold">Products <span className="text-sm font-normal text-zinc-500">({filteredProducts.length})</span></h1>
+        <div className="flex gap-2">
+          <Input placeholder="Cari produk..." value={search} onChange={e=>setSearch(e.target.value)} className="flex-1 sm:w-64 h-10" />
+          <Button onClick={openCreate} className="h-10 whitespace-nowrap">+ Tambah Produk</Button>
+        </div>
       </div>
 
       {/* Mobile cards vs desktop table */}
+      {filteredProducts.length === 0 && (
+        <Card className="p-8 text-center text-sm text-zinc-500">
+          {search ? `Tidak ada produk untuk "${search}"` : "Belum ada produk. Tap + Tambah Produk untuk membuat produk pertama."}
+        </Card>
+      )}
       <div className="grid gap-3 lg:hidden">
-        {products.map(p=> {
+        {filteredProducts.map(p=> {
           const m = calcMargin(p.selling_price, p.selling_price - p.cost_price);
           const st = getMarginStatus(m);
           return (
@@ -91,7 +117,7 @@ export default function ProductsClient({ categories, products: initial }: { cate
         <table className="w-full text-sm">
           <thead className="bg-zinc-50"><tr><th className="p-3 text-left">Produk</th><th className="p-3">Harga Jual</th><th className="p-3">HPP</th><th className="p-3">Margin</th><th className="p-3">Status</th><th className="p-3">Aksi</th></tr></thead>
           <tbody>
-            {products.map(p=> {
+            {filteredProducts.map(p=> {
               const m = calcMargin(p.selling_price, p.selling_price - p.cost_price);
               const st = getMarginStatus(m);
               return (
@@ -114,24 +140,30 @@ export default function ProductsClient({ categories, products: initial }: { cate
           <div className="bg-white rounded-t-2xl lg:rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-4 space-y-4" onClick={e=>e.stopPropagation()}>
             <h3 className="font-bold text-lg">{editing ? "Edit Produk" : "Produk Baru"}</h3>
             <div>
-              <Label>Nama Produk</Label>
-              <Input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} />
+              <Label>Nama Produk <span className="text-red-500">*</span></Label>
+              <Input placeholder="Es Kopi Susu" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} className="h-11" />
             </div>
             <div>
-              <Label>Kategori</Label>
-              <Select value={form.category_id} onChange={e=>setForm({...form,category_id:e.target.value})}>
+              <Label>Kategori <span className="text-red-500">*</span></Label>
+              <Select value={form.category_id} onChange={e=>setForm({...form,category_id:e.target.value})} className="h-11">
+                <option value="">Pilih kategori</option>
                 {categories.map(c=> <option key={c.id} value={c.id}>{c.name}</option>)}
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Harga Jual (Rp)</Label>
-                <Input type="number" inputMode="numeric" value={form.selling_price} onChange={e=>setForm({...form,selling_price:e.target.value})} />
+                <Label>Harga Jual (Rp) <span className="text-red-500">*</span></Label>
+                <Input type="number" inputMode="numeric" placeholder="18000" value={form.selling_price} onChange={e=>setForm({...form,selling_price:e.target.value})} className="h-11" />
               </div>
               <div>
-                <Label>HPP / Cost (Rp)</Label>
-                <Input type="number" inputMode="numeric" value={form.cost_price} onChange={e=>setForm({...form,cost_price:e.target.value})} />
+                <Label>HPP / Cost (Rp) <span className="text-red-500">*</span></Label>
+                <Input type="number" inputMode="numeric" placeholder="7000" value={form.cost_price} onChange={e=>setForm({...form,cost_price:e.target.value})} className="h-11" />
               </div>
+            </div>
+            <div>
+              <Label>Image URL (opsional)</Label>
+              <Input placeholder="https://..." value={form.image_url} onChange={e=>setForm({...form,image_url:e.target.value})} className="h-10" />
+              <p className="text-xs text-zinc-400 mt-1">Kosongkan jika tidak ada foto — POS akan tampil placeholder ☕</p>
             </div>
 
             {/* HPP Calculator */}
@@ -171,13 +203,15 @@ export default function ProductsClient({ categories, products: initial }: { cate
             </div>
 
             <div className="flex items-center gap-2">
-              <input type="checkbox" checked={form.is_available} onChange={e=>setForm({...form,is_available:e.target.checked})} />
-              <Label>Tersedia</Label>
+              <input type="checkbox" checked={form.is_available} onChange={e=>setForm({...form,is_available:e.target.checked})} className="h-4 w-4" />
+              <Label>Tersedia (tampil di POS)</Label>
             </div>
+            {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">{error}</p>}
             <div className="flex gap-2">
-              <Button onClick={submit} className="flex-1 h-11">{editing ? "Simpan" : "Buat Produk"}</Button>
-              <Button variant="outline" onClick={()=>setShowForm(false)}>Batal</Button>
+              <Button onClick={submit} className="flex-1 h-11">{editing ? "Simpan Perubahan" : "Tambah Produk"}</Button>
+              <Button variant="outline" onClick={()=>setShowForm(false)} className="h-11">Batal</Button>
             </div>
+            <p className="text-xs text-zinc-400 text-center">HPP akan di-snapshot saat transaksi — perubahan HPP tidak mengubah laporan historis</p>
           </div>
         </div>
       )}
