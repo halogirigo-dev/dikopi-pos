@@ -1,19 +1,88 @@
 "use client";
 import { formatRupiah } from "@/lib/utils";
 import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
-export default function TransactionsClient({ transactions, isAdmin }: { transactions:any[]; isAdmin:boolean }){
+export default function TransactionsClient({ transactions, isAdmin, activeLabel, initialParams }: { transactions:any[]; isAdmin:boolean; activeLabel:string; initialParams:any }){
+  const router = useRouter();
+  const sp = useSearchParams();
   const [filter,setFilter]=useState("");
   const [detail,setDetail]=useState<any|null>(null);
   const [voidId,setVoidId]=useState<string|null>(null);
   const [reason,setReason]=useState("");
 
   const filtered = transactions.filter(t=> t.invoice_number.toLowerCase().includes(filter.toLowerCase()));
+
+  function push(params: Record<string,string | undefined>){
+    const q = new URLSearchParams(sp.toString());
+    Object.entries(params).forEach(([k,v])=>{
+      if(!v) q.delete(k);
+      else q.set(k,v);
+    });
+    // clean conflicting keys
+    if(params.date) { q.delete("month"); q.delete("period"); q.delete("from"); q.delete("to"); }
+    if(params.month) { q.delete("date"); q.delete("period"); q.delete("from"); q.delete("to"); }
+    if(params.period) { q.delete("date"); q.delete("month"); if(params.period==="all"){ q.delete("period"); q.delete("from"); q.delete("to"); } }
+    router.push(`/transactions?${q.toString()}`);
+  }
+
+  const period = initialParams?.period || (initialParams?.date || initialParams?.month ? "" : "all");
+  const isToday = period==="today";
+  const isMonth = period==="thisMonth";
+  const isAll = !initialParams?.period && !initialParams?.date && !initialParams?.month && !initialParams?.from;
+
   async function doVoid(){ if(!voidId||!reason) return; const r=await fetch(`/api/transactions/${voidId}/void`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({reason})}); if(r.ok) location.reload(); else alert(await r.text()); }
 
   return (
     <div>
+      {/* Filter hari ini / bulan ini / pilih tanggal & bulan */}
+      <div className="card" style={{ padding:12, marginBottom:12 }}>
+        <div style={{ display:"flex", gap:8, overflowX:"auto", paddingBottom:4 }} className="scrollbar-none">
+          <button className={`cat ${isAll?"active":""}`} style={{ minHeight:36 }} onClick={()=>push({ period:"all" })}>Semua</button>
+          <button className={`cat ${isToday?"active":""}`} style={{ minHeight:36 }} onClick={()=>push({ period:"today" })}>Hari ini</button>
+          <button className={`cat ${isMonth?"active":""}`} style={{ minHeight:36 }} onClick={()=>push({ period:"thisMonth" })}>Bulan ini</button>
+          <button className="btn" style={{ minHeight:36, whiteSpace:"nowrap" }} onClick={()=>{
+            const d = prompt("Pilih tanggal (YYYY-MM-DD)", new Date().toISOString().slice(0,10));
+            if(d) push({ date: d });
+          }}>📅 Tanggal</button>
+          <button className="btn" style={{ minHeight:36, whiteSpace:"nowrap" }} onClick={()=>{
+            const m = prompt("Pilih bulan (YYYY-MM)", new Date().toISOString().slice(0,7));
+            if(m) push({ month: m });
+          }}>🗓️ Bulan</button>
+        </div>
+
+        {/* Native pickers for mobile */}
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginTop:10 }}>
+          <div>
+            <div style={{ fontSize:11, fontWeight:700, color:"#999", marginBottom:4 }}>Pilih tanggal</div>
+            <input className="input" type="date" value={initialParams?.date || ""} onChange={e=> e.target.value ? push({ date:e.target.value }) : push({ period:"all" })} style={{ minHeight:44 }} />
+          </div>
+          <div>
+            <div style={{ fontSize:11, fontWeight:700, color:"#999", marginBottom:4 }}>Pilih bulan</div>
+            <input className="input" type="month" value={initialParams?.month || ""} onChange={e=> e.target.value ? push({ month:e.target.value }) : push({ period:"all" })} style={{ minHeight:44 }} />
+          </div>
+        </div>
+
+        {/* Custom range tambahan */}
+        <details style={{ marginTop:10 }}>
+          <summary className="muted" style={{ fontSize:12, cursor:"pointer" }}>Rentang kustom</summary>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginTop:8 }}>
+            <input className="input" type="date" defaultValue={initialParams?.from||""} id="fromDate" />
+            <input className="input" type="date" defaultValue={initialParams?.to||""} id="toDate" />
+          </div>
+          <button className="btn accent" style={{ width:"100%", marginTop:8, minHeight:44 }} onClick={()=>{
+            const f=(document.getElementById("fromDate") as HTMLInputElement).value;
+            const t=(document.getElementById("toDate") as HTMLInputElement).value;
+            if(f && t) push({ period:"custom", from:f, to:t } as any);
+            else alert("Isi Dari dan Sampai");
+          }}>Terapkan rentang</button>
+        </details>
+
+        <div className="muted" style={{ fontSize:12, marginTop:10, textAlign:"center" }}>Menampilkan: <b style={{ color:"var(--text)" }}>{activeLabel}</b> • {filtered.length} transaksi</div>
+      </div>
+
       <input className="input" placeholder="Search invoice..." value={filter} onChange={e=>setFilter(e.target.value)} />
+
       <div style={{ display:"grid", gap:12, marginTop:12 }}>
         {filtered.map(t=> (
           <button key={t.id} className="card" style={{ padding:16, textAlign:"left", width:"100%" }} onClick={()=>setDetail(t)}>
@@ -29,7 +98,7 @@ export default function TransactionsClient({ transactions, isAdmin }: { transact
             {t.payment_method==="CASH" && t.change_amount!=null && t.status!=="VOID" && <div className="muted" style={{ fontSize:11, marginTop:6 }}>Kembalian {formatRupiah(t.change_amount)}</div>}
           </button>
         ))}
-        {!filtered.length && <div className="card" style={{ padding:24, textAlign:"center" }}><span className="muted">Tidak ada transaksi</span></div>}
+        {!filtered.length && <div className="card" style={{ padding:24, textAlign:"center" }}><span className="muted">Tidak ada transaksi untuk filter ini</span><div style={{ marginTop:8 }}><button className="btn" onClick={()=>push({ period:"all" })}>Lihat semua</button></div></div>}
       </div>
 
       {/* Detail bottom sheet */}
