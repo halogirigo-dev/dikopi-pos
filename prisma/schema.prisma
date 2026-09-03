@@ -57,6 +57,8 @@ model Transaction {
   gross_profit   Int
   payment_method String
   status         String @default("COMPLETED")
+  amount_paid    Int?
+  change_amount  Int?
   voided_by      String?
   voided_at      DateTime?
   void_reason    String?

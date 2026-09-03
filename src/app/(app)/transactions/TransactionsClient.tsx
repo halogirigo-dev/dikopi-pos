@@ -37,6 +37,9 @@ export default function TransactionsClient({ transactions, isAdmin }: { transact
             <p className="text-xs text-zinc-500">{new Date(t.created_at).toLocaleString("id-ID")} • {t.user.name} • {t.payment_method}</p>
             <p className="font-bold mt-1">{formatRupiah(t.total_revenue)}</p>
             <p className="text-xs text-zinc-500">HPP {formatRupiah(t.total_cogs)} • Gross {formatRupiah(t.gross_profit)}</p>
+            {t.payment_method==="CASH" && t.amount_paid != null && (
+              <p className="text-xs mt-1">Diterima {formatRupiah(t.amount_paid)} • Kembalian <span className="font-medium text-emerald-600">{formatRupiah(t.change_amount ?? 0)}</span></p>
+            )}
             {isAdmin && t.status==="COMPLETED" && <Button size="sm" variant="outline" className="mt-2 w-full text-red-600" onClick={()=>setVoidId(t.id)}>Void</Button>}
             {t.status==="VOID" && t.void_reason && <p className="text-xs text-red-600 mt-1">Void: {t.void_reason}</p>}
           </div>
@@ -45,7 +48,7 @@ export default function TransactionsClient({ transactions, isAdmin }: { transact
 
       <div className="hidden lg:block bg-white border rounded-xl overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-zinc-50"><tr><th className="p-3 text-left">Invoice</th><th className="p-3">Tanggal</th><th className="p-3">Kasir</th><th className="p-3">Revenue</th><th className="p-3">Payment</th><th className="p-3">Status</th><th className="p-3">Aksi</th></tr></thead>
+          <thead className="bg-zinc-50"><tr><th className="p-3 text-left">Invoice</th><th className="p-3">Tanggal</th><th className="p-3">Kasir</th><th className="p-3">Revenue</th><th className="p-3">Payment</th><th className="p-3">Kembalian</th><th className="p-3">Status</th><th className="p-3">Aksi</th></tr></thead>
           <tbody>
             {filtered.map(t=> (
               <tr key={t.id} className="border-t">
@@ -54,6 +57,7 @@ export default function TransactionsClient({ transactions, isAdmin }: { transact
                 <td className="p-3">{t.user.name}</td>
                 <td className="p-3">{formatRupiah(t.total_revenue)}</td>
                 <td className="p-3">{t.payment_method}</td>
+                <td className="p-3">{t.payment_method==="CASH" && t.change_amount != null ? formatRupiah(t.change_amount) : "-"}</td>
                 <td className="p-3"><span className={`px-2 py-1 rounded-full text-xs ${t.status==="VOID"?"bg-red-100 text-red-600":"bg-emerald-100 text-emerald-600"}`}>{t.status}</span></td>
                 <td className="p-3">{isAdmin && t.status==="COMPLETED" ? <button onClick={()=>setVoidId(t.id)} className="text-red-600">Void</button> : "-"}</td>
               </tr>

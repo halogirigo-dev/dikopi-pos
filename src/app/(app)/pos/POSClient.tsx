@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useCart } from "@/hooks/useCart";
 import { formatRupiah } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 type Cat = { id: string; name: string };
 type Prod = { id: string; name: string; selling_price: number; cost_price: number; category_id: string; category: Cat; image_url?: string | null };
@@ -11,9 +12,10 @@ export default function POSClient({ categories, products }: { categories: Cat[];
   const [activeCat, setActiveCat] = useState<string>("ALL");
   const [search, setSearch] = useState("");
   const [payment, setPayment] = useState<string>("CASH");
+  const [amountPaid, setAmountPaid] = useState<string>("");
   const [showCart, setShowCart] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [lastInvoice, setLastInvoice] = useState<string | null>(null);
+  const [lastTx, setLastTx] = useState<{ invoice_number: string; change_amount: number; amount_paid: number } | null>(null);
   const cart = useCart();
 
   const filtered = products.filter(p=> {
@@ -24,24 +26,44 @@ export default function POSClient({ categories, products }: { categories: Cat[];
 
   const total = cart.total();
   const count = cart.count();
+  const paidNum = Number(amountPaid.replace(/\D/g, "")) || 0;
+  const change = payment === "CASH" && amountPaid ? paidNum - total : 0;
+  const isCashInvalid = payment === "CASH" && amountPaid !== "" && paidNum < total;
 
   async function confirm() {
     if (!cart.items.length) return;
+    if (payment === "CASH" && isCashInvalid) return;
     setLoading(true);
+    const payload: any = {
+      items: cart.items.map(i=>({ product_id: i.product_id, quantity: i.quantity })),
+      payment_method: payment,
+    };
+    if (payment === "CASH") {
+      const paid = amountPaid === "" ? total : paidNum;
+      payload.amount_paid = paid;
+      payload.change_amount = Math.max(0, paid - total);
+    }
     const res = await fetch("/api/transactions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items: cart.items.map(i=>({ product_id: i.product_id, quantity: i.quantity })), payment_method: payment })
+      body: JSON.stringify(payload)
     });
     if (res.ok) {
       const data = await res.json();
-      setLastInvoice(data.invoice_number);
+      setLastTx({ invoice_number: data.invoice_number, change_amount: data.change_amount ?? 0, amount_paid: data.amount_paid ?? total });
       cart.clear();
+      setAmountPaid("");
       setShowCart(false);
     } else {
       alert("Gagal: " + await res.text());
     }
     setLoading(false);
+  }
+
+  // Reset amountPaid when switching to non-cash
+  function handlePaymentChange(m: string) {
+    setPayment(m);
+    if (m !== "CASH") setAmountPaid("");
   }
 
   return (
@@ -69,12 +91,12 @@ export default function POSClient({ categories, products }: { categories: Cat[];
 
       {/* Cart - desktop sticky */}
       <div className="hidden lg:block w-96 shrink-0">
-        <CartPanel total={total} payment={payment} setPayment={setPayment} confirm={confirm} loading={loading} lastInvoice={lastInvoice} />
+        <CartPanel total={total} payment={payment} setPayment={handlePaymentChange} confirm={confirm} loading={loading} lastTx={lastTx} amountPaid={amountPaid} setAmountPaid={setAmountPaid} change={change} isCashInvalid={isCashInvalid} />
       </div>
 
       {/* Mobile cart bar */}
       <div className="lg:hidden fixed bottom-16 left-0 right-0 px-3">
-        {lastInvoice && <div className="bg-emerald-600 text-white text-sm rounded-lg p-2 mb-2 text-center">Transaksi {lastInvoice} berhasil</div>}
+        {lastTx && <div className="bg-emerald-600 text-white text-sm rounded-lg p-2 mb-2 text-center">Transaksi {lastTx.invoice_number} • Kembalian {formatRupiah(lastTx.change_amount)}</div>}
         <div className="bg-white border rounded-xl shadow-lg p-3 flex items-center justify-between">
           <div>
             <p className="font-bold">{count} item • {formatRupiah(total)}</p>
@@ -93,7 +115,7 @@ export default function POSClient({ categories, products }: { categories: Cat[];
               <button onClick={()=>setShowCart(false)} className="text-xl">×</button>
             </div>
             <div className="flex-1 overflow-y-auto p-4">
-              <CartPanel total={total} payment={payment} setPayment={setPayment} confirm={confirm} loading={loading} lastInvoice={lastInvoice} />
+              <CartPanel total={total} payment={payment} setPayment={handlePaymentChange} confirm={confirm} loading={loading} lastTx={lastTx} amountPaid={amountPaid} setAmountPaid={setAmountPaid} change={change} isCashInvalid={isCashInvalid} />
             </div>
           </div>
         </div>
@@ -102,14 +124,16 @@ export default function POSClient({ categories, products }: { categories: Cat[];
   );
 }
 
-function CartPanel({ total, payment, setPayment, confirm, loading, lastInvoice }: any) {
+function CartPanel({ total, payment, setPayment, confirm, loading, lastTx, amountPaid, setAmountPaid, change, isCashInvalid }: any) {
   const cart = useCart();
+  const quickAmounts = [20000, 50000, 100000];
+
   return (
     <div className="bg-white border rounded-xl p-4 space-y-3">
       <h3 className="font-bold">CART</h3>
       {cart.items.length===0 ? <p className="text-sm text-zinc-500 py-8 text-center">Keranjang kosong</p> : (
         <div className="space-y-2">
-          {cart.items.map(i=> (
+          {cart.items.map((i: any)=> (
             <div key={i.product_id} className="flex justify-between items-center border rounded-lg p-2">
               <div className="min-w-0">
                 <p className="text-sm font-medium truncate">{i.product_name}</p>
@@ -133,10 +157,52 @@ function CartPanel({ total, payment, setPayment, confirm, loading, lastInvoice }
             <button key={m} onClick={()=>setPayment(m)} className={`h-10 rounded-lg border text-sm font-medium ${payment===m ? "bg-zinc-900 text-white" : "bg-white"}`}>{m}</button>
           ))}
         </div>
-        <Button onClick={confirm} disabled={loading || cart.items.length===0} className="w-full mt-3 h-12 text-base">
-          {loading ? "Memproses..." : "CONFIRM PAYMENT"}
+
+        {/* Kembalian feature - only for CASH */}
+        {payment === "CASH" && cart.items.length > 0 && (
+          <div className="mt-3 space-y-2 bg-zinc-50 border rounded-lg p-3">
+            <label className="text-xs font-medium text-zinc-700">Uang Diterima (CASH)</label>
+            <Input
+              type="text"
+              inputMode="numeric"
+              placeholder={formatRupiah(total)}
+              value={amountPaid}
+              onChange={e=> {
+                const digits = e.target.value.replace(/\D/g, "");
+                setAmountPaid(digits ? formatRupiah(Number(digits)) : "");
+              }}
+              className={`h-11 text-base font-medium ${isCashInvalid ? "border-red-500 focus:ring-red-500" : ""}`}
+            />
+            <div className="flex gap-1.5 flex-wrap">
+              <button type="button" onClick={()=>setAmountPaid(formatRupiah(total))} className="px-2 py-1 text-xs rounded-full border bg-white hover:bg-zinc-100">Uang Pas</button>
+              {quickAmounts.map(v=> (
+                <button key={v} type="button" onClick={()=>setAmountPaid(formatRupiah(v))} className="px-2 py-1 text-xs rounded-full border bg-white hover:bg-zinc-100">{formatRupiah(v)}</button>
+              ))}
+            </div>
+            <div className="flex justify-between items-center pt-1">
+              <span className="text-sm text-zinc-600">Kembalian</span>
+              <span className={`text-base font-bold ${isCashInvalid ? "text-red-600" : change > 0 ? "text-emerald-600" : "text-zinc-900"}`}>
+                {isCashInvalid ? "Uang kurang!" : formatRupiah(Math.max(0, change))}
+              </span>
+            </div>
+            {isCashInvalid && <p className="text-xs text-red-600">Uang diterima kurang dari total</p>}
+            {!isCashInvalid && amountPaid && change >= 0 && <p className="text-xs text-zinc-500">{formatRupiah(Number(amountPaid.replace(/\D/g,"")))} - {formatRupiah(total)} = {formatRupiah(change)}</p>}
+          </div>
+        )}
+
+        {payment !== "CASH" && cart.items.length > 0 && (
+          <p className="text-xs text-zinc-500 mt-2 text-center">Pembayaran {payment} — tidak perlu kembalian</p>
+        )}
+
+        <Button onClick={confirm} disabled={loading || cart.items.length===0 || isCashInvalid} className="w-full mt-3 h-12 text-base">
+          {loading ? "Memproses..." : payment==="CASH" && amountPaid && !isCashInvalid ? `BAYAR • Kembalian ${formatRupiah(Math.max(0, change))}` : "CONFIRM PAYMENT"}
         </Button>
-        {lastInvoice && <p className="text-xs text-emerald-600 text-center mt-2">Last: {lastInvoice}</p>}
+        {lastTx && (
+          <div className="mt-2 bg-emerald-50 border border-emerald-200 rounded-lg p-2 text-sm text-center">
+            <p className="font-medium text-emerald-700">Transaksi {lastTx.invoice_number} berhasil</p>
+            <p className="text-xs text-zinc-600">Diterima {formatRupiah(lastTx.amount_paid)} • Kembalian {formatRupiah(lastTx.change_amount)}</p>
+          </div>
+        )}
       </div>
     </div>
   );

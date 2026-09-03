@@ -20,7 +20,7 @@ export async function POST(req: Request) {
   const session: any = await getServerSession(authOptions);
   if (!session) return new Response("Unauthorized", { status: 401 });
   const body = await req.json();
-  const { items, payment_method } = body as { items: { product_id: string; quantity: number }[]; payment_method: string };
+  const { items, payment_method, amount_paid, change_amount } = body as { items: { product_id: string; quantity: number }[]; payment_method: string; amount_paid?: number; change_amount?: number };
   if (!items?.length || !payment_method) return new Response("Missing fields", { status: 400 });
 
   // fetch products snapshot
@@ -49,6 +49,30 @@ export async function POST(req: Request) {
   }
   const grossProfit = totalRevenue - totalCogs;
 
+  // Validate cash payment with kembalian
+  let paid: number | null = null;
+  let change: number | null = null;
+  if (payment_method === "CASH") {
+    if (amount_paid != null) {
+      paid = Number(amount_paid);
+      if (paid < totalRevenue) return new Response("Uang diterima kurang dari total", { status: 400 });
+      change = paid - totalRevenue;
+      // if client sent change_amount, verify consistency
+      if (change_amount != null && Number(change_amount) !== change) {
+        // override to computed to prevent manipulation
+        change = paid - totalRevenue;
+      }
+    } else {
+      // auto: consider exact payment if not provided (legacy)
+      paid = totalRevenue;
+      change = 0;
+    }
+  } else {
+    // non-cash: paid = total, change 0
+    paid = totalRevenue;
+    change = 0;
+  }
+
   // invoice number
   const today = new Date();
   today.setHours(0,0,0,0);
@@ -67,6 +91,8 @@ export async function POST(req: Request) {
           gross_profit: grossProfit,
           payment_method,
           status: "COMPLETED",
+          amount_paid: paid,
+          change_amount: change,
           items: { create: lineItems }
         },
         include: { items: true }
