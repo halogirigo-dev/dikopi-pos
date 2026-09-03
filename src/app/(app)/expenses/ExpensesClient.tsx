@@ -12,8 +12,27 @@ export default function ExpensesClient({ categories, expenses }: { categories:an
   const total = expenses.reduce((s:number,e:any)=>s+e.amount,0);
   return (
     <div>
-      <div className="filters"><button className="btn accent" onClick={()=>setShow(true)}>＋ Add Expense</button><span className="muted" style={{ alignSelf:"center" }}>September 2026 · Total {formatRupiah(total)}</span></div>
-      <div className="card">
+      <div className="filters"><button className="btn accent" onClick={()=>setShow(true)}>＋ Tambah Pengeluaran</button><span className="muted" style={{ alignSelf:"center" }}>Total {formatRupiah(total)}</span></div>
+
+      {/* Mobile cards spec 15 */}
+      <div style={{ display:"grid", gap:12 }}>
+        <style>{`@media(min-width:901px){ .mobile-exp{display:none} } @media(max-width:900px){ .desktop-exp{display:none} }`}</style>
+        <div className="mobile-exp" style={{ display:"grid", gap:12 }}>
+          {expenses.map((e:any)=> (
+            <div key={e.id} className="card" style={{ padding:16 }}>
+              <div style={{ display:"flex", justifyContent:"space-between" }}>
+                <div><div style={{ fontWeight:700, fontSize:14 }}>{e.description}</div><div className="muted" style={{ fontSize:12 }}>{e.category.name}</div></div>
+                <div style={{ fontWeight:800, color:"var(--red)", fontSize:14 }}>-{formatRupiah(e.amount)}</div>
+              </div>
+              <div className="muted" style={{ fontSize:12, marginTop:8 }}>{new Date(e.expense_date).toLocaleDateString("id-ID",{day:"2-digit", month:"short", year:"numeric"})} • {e.payment_method}</div>
+              {e.notes && <div className="muted" style={{ fontSize:12, marginTop:6 }}>{e.notes}</div>}
+            </div>
+          ))}
+          {!expenses.length && <div className="card" style={{ padding:20, textAlign:"center" }}><span className="muted">Belum ada pengeluaran</span></div>}
+        </div>
+      </div>
+
+      <div className="card desktop-exp">
         <div className="card-head"><div className="card-title">Expenses</div><div className="muted">Total {formatRupiah(total)}</div></div>
         <table className="table">
           <thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Payment</th><th>Amount</th></tr></thead>

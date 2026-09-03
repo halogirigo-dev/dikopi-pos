@@ -10,12 +10,28 @@ export default async function ReportsPage({ searchParams }: { searchParams: { pe
   const products = await getProductPerformance(from,to);
   const kpi = await getFinancialKPI(from,to);
 
-  // If view=products, show product performance full (as in prototype), else show P&L default
+  // If view=products, show product performance spec 13 mobile cards
   if (view==="products") {
     return (
       <div>
         <div className="filters"><h1 style={{ fontSize:18, fontWeight:700, margin:0 }}>Product Performance</h1><ReportsClient period={period} /></div>
-        <div className="card">
+        <style>{`@media(min-width:901px){ .mobile-pp{display:none} } @media(max-width:900px){ .desktop-pp{display:none} }`}</style>
+        <div className="mobile-pp" style={{ display:"grid", gap:12 }}>
+          {products.map(p=> (
+            <div key={p.product_id} className="card" style={{ padding:16 }}>
+              <div style={{ fontWeight:700, fontSize:14 }}>{p.product_name}</div>
+              <div className="muted" style={{ fontSize:12 }}>{p.sold} terjual</div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginTop:12, background:"var(--surface2)", borderRadius:12, padding:12 }}>
+                <div><div className="muted" style={{ fontSize:11 }}>Revenue</div><div style={{ fontWeight:700 }}>{formatRupiah(p.revenue)}</div></div>
+                <div><div className="muted" style={{ fontSize:11 }}>HPP</div><div style={{ fontWeight:700 }}>{formatRupiah(p.hpp)}</div></div>
+                <div><div className="muted" style={{ fontSize:11 }}>Gross Profit</div><div style={{ fontWeight:700, color:"var(--green)" }}>{formatRupiah(p.gross)}</div></div>
+                <div><div className="muted" style={{ fontSize:11 }}>Margin</div><div style={{ fontWeight:700 }}>{p.margin.toFixed(1)}%</div></div>
+              </div>
+            </div>
+          ))}
+          {!products.length && <div className="card" style={{ padding:20, textAlign:"center" }}><span className="muted">Belum ada data</span></div>}
+        </div>
+        <div className="card desktop-pp">
           <div className="card-head"><div><div className="card-title">Product Performance</div><div className="muted">Revenue and profitability by product</div></div><a href="/reports" className="btn">P&amp;L ▸</a></div>
           <table className="table"><thead><tr><th>Product</th><th>Qty Sold</th><th>Revenue</th><th>HPP</th><th>Gross Profit</th><th>Margin</th></tr></thead>
           <tbody>

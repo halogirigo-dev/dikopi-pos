@@ -36,7 +36,29 @@ export default function ProductsClient({ categories, products: initial }: { cate
   return (
     <div>
       <div className="filters"><button className="btn accent" onClick={openCreate}>＋ Add Product</button><input className="input" placeholder="Search product..." value={search} onChange={e=>setSearch(e.target.value)} /></div>
-      <div className="card">
+      {/* Mobile cards spec 14 */}
+      <div style={{ display:"grid", gap:12 }} className="mobile-product-cards">
+        <style>{`@media(min-width:901px){ .mobile-product-cards{display:none} } @media(max-width:900px){ .desktop-table{display:none} }`}</style>
+        {filtered.map(p=>{
+          const m=calcMargin(p.selling_price, p.selling_price - p.cost_price);
+          return (
+            <div key={p.id} className="card" style={{ padding:16 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                <div><div style={{ fontWeight:700, fontSize:14 }}>{p.name}</div><div className="muted" style={{ fontSize:12 }}>{p.category.name} • {p.is_available?"Aktif":"Hidden"}</div></div>
+                <span className="badge" style={{ background: m>=50?"var(--green-soft)": m>=30?"var(--warning-soft)":"var(--red-soft)", color: m>=50?"var(--green)": m>=30?"var(--warning)":"var(--red)" }}>{m.toFixed(1)}%</span>
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginTop:12, background:"var(--surface2)", borderRadius:12, padding:12 }}>
+                <div><div className="muted" style={{ fontSize:11 }}>Selling Price</div><div style={{ fontWeight:700 }}>{formatRupiah(p.selling_price)}</div></div>
+                <div><div className="muted" style={{ fontSize:11 }}>HPP</div><div style={{ fontWeight:700 }}>{formatRupiah(p.cost_price)}</div></div>
+              </div>
+              <div className="muted" style={{ fontSize:12, marginTop:8 }}>Margin {m.toFixed(1)}% • Gross {formatRupiah(p.selling_price - p.cost_price)}</div>
+              <button className="btn" style={{ width:"100%", marginTop:12 }} onClick={()=>openEdit(p)}>Edit</button>
+            </div>
+          );
+        })}
+        {!filtered.length && <div className="card" style={{ padding:20, textAlign:"center" }}><span className="muted">Tidak ada produk</span></div>}
+      </div>
+      <div className="card desktop-table">
         <table className="table">
           <thead><tr><th>Product</th><th>Category</th><th>Selling Price</th><th>HPP</th><th>Gross Margin</th><th>Status</th><th>Aksi</th></tr></thead>
           <tbody>
