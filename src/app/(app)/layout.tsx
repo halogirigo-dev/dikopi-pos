@@ -7,13 +7,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const session: any = await getServerSession(authOptions);
   if (!session) redirect("/login");
   return (
-    <div className="min-h-screen bg-zinc-50">
+    <div className="app">
       <AppNav role={session.user.role} userName={session.user.name} />
-      <main className="pb-20 lg:pb-6 lg:pl-64">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
-          {children}
-        </div>
-      </main>
+      <div className="main">
+        <header className="topbar">
+          <div>
+            <div className="page-title">DIKOPI POS</div>
+            <div className="date">Financial Monitoring · {session.user.role === "CASHIER" ? `Kasir ${session.user.name}` : "Owner view"}</div>
+          </div>
+          <div className="actions">
+            <span className="muted" style={{ fontSize: 12 }}>{session.user.name} · {session.user.role}</span>
+          </div>
+        </header>
+        <div className="content">{children}</div>
+      </div>
     </div>
   );
 }

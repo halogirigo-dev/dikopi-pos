@@ -1,71 +1,66 @@
-import { getSalesReport, getProductPerformance } from "@/lib/finance";
-import { getDateRange } from "@/lib/utils";
-import { formatRupiah, formatRupiahShort } from "@/lib/utils";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getSalesReport, getProductPerformance, getFinancialKPI } from "@/lib/finance";
+import { getDateRange, formatRupiah } from "@/lib/utils";
 import ReportsClient from "./ReportsClient";
 
-export default async function ReportsPage({ searchParams }: { searchParams: { period?: string; from?: string; to?: string }}) {
+export default async function ReportsPage({ searchParams }: { searchParams: { period?: string; view?: string }}) {
   const period = searchParams.period || "thisMonth";
-  const { from, to } = getDateRange(period, searchParams.from, searchParams.to);
-  const sales = await getSalesReport(from, to);
-  const products = await getProductPerformance(from, to);
+  const view = searchParams.view || "";
+  const { from, to } = getDateRange(period);
+  const sales = await getSalesReport(from,to);
+  const products = await getProductPerformance(from,to);
+  const kpi = await getFinancialKPI(from,to);
+
+  // If view=products, show product performance full (as in prototype), else show P&L default
+  if (view==="products") {
+    return (
+      <div>
+        <div className="filters"><h1 style={{ fontSize:18, fontWeight:700, margin:0 }}>Product Performance</h1><ReportsClient period={period} /></div>
+        <div className="card">
+          <div className="card-head"><div><div className="card-title">Product Performance</div><div className="muted">Revenue and profitability by product</div></div><a href="/reports" className="btn">P&amp;L ▸</a></div>
+          <table className="table"><thead><tr><th>Product</th><th>Qty Sold</th><th>Revenue</th><th>HPP</th><th>Gross Profit</th><th>Margin</th></tr></thead>
+          <tbody>
+            {products.map(p=> (
+              <tr key={p.product_id}><td><b>{p.product_name}</b></td><td>{p.sold}</td><td className="num">{formatRupiah(p.revenue)}</td><td className="num">{formatRupiah(p.hpp)}</td><td className="num">{formatRupiah(p.gross)}</td><td className="num">{p.margin.toFixed(1)}%</td></tr>
+            ))}
+            {!products.length && <tr><td colSpan={6} style={{ textAlign:"center", padding:20 }} className="muted">Belum ada data</td></tr>}
+          </tbody></table>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold">Reports</h1>
-          <p className="text-sm text-zinc-500">{from.toLocaleDateString("id-ID")} - {to.toLocaleDateString("id-ID")}</p>
+    <div>
+      <div className="filters"><h1 style={{ fontSize:18, fontWeight:700, margin:0 }}>Profit & Loss</h1><ReportsClient period={period} /></div>
+      <div className="report-grid">
+        <div className="card statement">
+          <div className="card-title">Profit & Loss</div>
+          <div className="section-label">Revenue</div>
+          <div className="statement-line"><span>Sales Revenue</span><b>{formatRupiah(kpi.revenue)}</b></div>
+          <div className="section-label">Cost of Goods Sold</div>
+          <div className="statement-line"><span>HPP / COGS</span><b>{formatRupiah(kpi.hpp)}</b></div>
+          <div className="statement-line total"><span>Gross Profit</span><b className="positive">{formatRupiah(kpi.grossProfit)}</b></div>
+          <div className="section-label">Operating Expense</div>
+          <div className="statement-line"><span>Total Operating Expense</span><b>{formatRupiah(kpi.totalExpense)}</b></div>
+          <div className="statement-line total"><span>Net Profit</span><b className="positive">{formatRupiah(kpi.netProfit)}</b></div>
         </div>
-        <ReportsClient period={period} />
+        <div className="card statement">
+          <div className="card-title">Margins</div>
+          <div className="list" style={{ padding:"10px 0" }}>
+            <div className="list-row"><span>Gross Margin</span><b>{kpi.grossMargin.toFixed(1)}%</b></div>
+            <div className="list-row"><span>HPP Ratio</span><b>{kpi.revenue?((kpi.hpp/kpi.revenue)*100).toFixed(1):0}%</b></div>
+            <div className="list-row"><span>Operating Expense Ratio</span><b>{kpi.revenue?((kpi.totalExpense/kpi.revenue)*100).toFixed(1):0}%</b></div>
+            <div className="list-row"><span>Net Margin</span><b className="positive">{kpi.revenue?((kpi.netProfit/kpi.revenue)*100).toFixed(1):0}%</b></div>
+          </div>
+          <div style={{ marginTop:16 }}>
+            <div className="card-head" style={{ padding:"12px 0", borderBottom:0 }}><div className="card-title" style={{ fontSize:13 }}>Sales Report</div></div>
+            <table className="table" style={{ fontSize:11 }}><thead><tr><th>Tanggal</th><th>Trx</th><th>Revenue</th><th>Gross</th></tr></thead><tbody>
+              {sales.slice(-5).map(s=> <tr key={s.date}><td>{s.date}</td><td>{s.transactions}</td><td className="num">{formatRupiah(s.revenue)}</td><td className="num">{formatRupiah(s.gross)}</td></tr>)}
+            </tbody></table>
+          </div>
+        </div>
       </div>
-
-      <Card>
-        <CardHeader><CardTitle>Sales Report</CardTitle></CardHeader>
-        <CardContent>
-          {/* mobile cards */}
-          <div className="grid gap-2 lg:hidden">
-            {sales.length===0 ? <p className="text-sm text-zinc-500">Belum ada data</p> : sales.map(s=> (
-              <div key={s.date} className="border rounded-lg p-3 text-sm">
-                <p className="font-medium">{s.date} • {s.transactions} transaksi</p>
-                <p>Revenue {formatRupiah(s.revenue)} • HPP {formatRupiah(s.hpp)} • Gross {formatRupiah(s.gross)}</p>
-              </div>
-            ))}
-          </div>
-          <div className="hidden lg:block overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-zinc-50"><tr><th className="p-2 text-left">Tanggal</th><th className="p-2">Transaksi</th><th className="p-2">Revenue</th><th className="p-2">HPP</th><th className="p-2">Gross</th></tr></thead>
-              <tbody>{sales.map(s=> (
-                <tr key={s.date} className="border-t"><td className="p-2">{s.date}</td><td className="p-2 text-center">{s.transactions}</td><td className="p-2 text-center">{formatRupiah(s.revenue)}</td><td className="p-2 text-center">{formatRupiah(s.hpp)}</td><td className="p-2 text-center font-medium">{formatRupiah(s.gross)}</td></tr>
-              ))}</tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader><CardTitle>Product Performance</CardTitle></CardHeader>
-        <CardContent>
-          <div className="grid gap-2 lg:hidden">
-            {products.map(p=> (
-              <div key={p.product_id} className="border rounded-lg p-3 text-sm">
-                <p className="font-medium">{p.product_name} • {p.sold} terjual</p>
-                <p>Revenue {formatRupiahShort(p.revenue)} • HPP {formatRupiahShort(p.hpp)}</p>
-                <p>Gross {formatRupiahShort(p.gross)} • Margin {p.margin.toFixed(1)}%</p>
-                <div className="h-2 bg-zinc-100 rounded-full mt-1"><div className="h-2 bg-zinc-900 rounded-full" style={{width: `${Math.min(p.margin,100)}%`}} /></div>
-              </div>
-            ))}
-          </div>
-          <div className="hidden lg:block overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-zinc-50"><tr><th className="p-2 text-left">Produk</th><th className="p-2">Terjual</th><th className="p-2">Revenue</th><th className="p-2">HPP</th><th className="p-2">Gross</th><th className="p-2">Margin</th></tr></thead>
-              <tbody>{products.map(p=> (
-                <tr key={p.product_id} className="border-t"><td className="p-2">{p.product_name}</td><td className="p-2 text-center">{p.sold}</td><td className="p-2 text-center">{formatRupiah(p.revenue)}</td><td className="p-2 text-center">{formatRupiah(p.hpp)}</td><td className="p-2 text-center font-medium">{formatRupiah(p.gross)}</td><td className="p-2 text-center">{p.margin.toFixed(1)}%</td></tr>
-              ))}</tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+      <div style={{ marginTop:16, textAlign:"center" }}><a href="/reports?view=products" className="btn">Lihat Product Performance →</a></div>
     </div>
   );
 }
