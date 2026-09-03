@@ -3,18 +3,39 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
-// SQLite enums simulated as String — valid values: Role: ADMIN/CASHIER, PaymentMethod: CASH/QRIS/DEBIT/TRANSFER, TransactionStatus: COMPLETED/VOID, AdjustmentType: OPENING_BALANCE/CORRECTION
+enum Role {
+  ADMIN
+  CASHIER
+}
+
+enum PaymentMethod {
+  CASH
+  QRIS
+  DEBIT
+  TRANSFER
+}
+
+enum TransactionStatus {
+  COMPLETED
+  VOID
+}
+
+enum AdjustmentType {
+  OPENING_BALANCE
+  CORRECTION
+}
 
 model User {
   id            String         @id @default(cuid())
   name          String
   username      String         @unique
   password_hash String
-  role          String         @default("CASHIER")
+  role          Role           @default(CASHIER)
   is_active     Boolean        @default(true)
   created_at    DateTime       @default(now())
   updated_at    DateTime       @updatedAt
@@ -38,7 +59,7 @@ model Product {
   name          String
   selling_price Int
   cost_price    Int
-  hpp_breakdown String?
+  hpp_breakdown Json?
   image_url     String?
   is_available  Boolean  @default(true)
   created_at    DateTime @default(now())
@@ -55,8 +76,8 @@ model Transaction {
   total_revenue  Int
   total_cogs     Int
   gross_profit   Int
-  payment_method String
-  status         String @default("COMPLETED")
+  payment_method PaymentMethod
+  status         TransactionStatus @default(COMPLETED)
   amount_paid    Int?
   change_amount  Int?
   voided_by      String?
@@ -101,7 +122,7 @@ model Expense {
   category       ExpenseCategory @relation(fields: [category_id], references: [id])
   description    String
   amount         Int
-  payment_method String
+  payment_method PaymentMethod
   expense_date   DateTime
   created_by     String
   creator        User            @relation(fields: [created_by], references: [id])
@@ -115,7 +136,7 @@ model Expense {
 
 model CashAdjustment {
   id          String         @id @default(cuid())
-  type        String
+  type        AdjustmentType
   amount      Int
   description String
   created_by  String

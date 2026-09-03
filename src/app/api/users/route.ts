@@ -13,6 +13,6 @@ export async function POST(req: Request) {
   const { name, username, password, role } = await req.json();
   if (!name || !username || !password) return new Response("Missing", { status: 400 });
   const hash = await bcrypt.hash(password, 10);
-  const u = await prisma.user.create({ data: { name, username, password_hash: hash, role: role || "CASHIER" }});
+  const u = await prisma.user.create({ data: { name, username, password_hash: hash, role: (role || "CASHIER") as any }});
   return Response.json({ id: u.id, name: u.name, username: u.username, role: u.role });
 }

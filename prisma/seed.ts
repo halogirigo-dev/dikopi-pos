@@ -36,7 +36,7 @@ async function main() {
   const snack = await prisma.category.findUnique({ where: { name: "Snack" }});
 
   const products = [
-    { name: "Es Kopi Susu", category_id: coffee!.id, selling_price: 18000, cost_price: 7000, hpp_breakdown: JSON.stringify([{name:"Kopi 15gr",cost:2500},{name:"Susu 100ml",cost:3000},{name:"Gula+cup",cost:1500}]) },
+    { name: "Es Kopi Susu", category_id: coffee!.id, selling_price: 18000, cost_price: 7000, hpp_breakdown: [{name:"Kopi 15gr",cost:2500},{name:"Susu 100ml",cost:3000},{name:"Gula+cup",cost:1500}] },
     { name: "Americano", category_id: coffee!.id, selling_price: 15000, cost_price: 4000 },
     { name: "Matcha Latte", category_id: nonCoffee!.id, selling_price: 20000, cost_price: 8500 },
     { name: "Cappuccino", category_id: coffee!.id, selling_price: 18000, cost_price: 6500 },

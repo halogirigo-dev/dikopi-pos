@@ -9,7 +9,7 @@ export async function POST(req: Request, { params }: { params: { id: string }}) 
   if (!reason) return new Response("Reason required", { status: 400 });
   const tx = await prisma.transaction.update({
     where: { id: params.id },
-    data: { status: "VOID", voided_by: session.user.id, voided_at: new Date(), void_reason: reason }
+    data: { status: "VOID" as any, voided_by: session.user.id, voided_at: new Date(), void_reason: reason }
   });
   return Response.json(tx);
 }

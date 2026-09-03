@@ -14,7 +14,7 @@ export async function POST(req: Request) {
   if (!name || !category_id || selling_price == null || cost_price == null) return new Response("Missing fields", { status: 400 });
   const p = await prisma.product.create({ data: {
     name, category_id, selling_price: Number(selling_price), cost_price: Number(cost_price),
-    hpp_breakdown: hpp_breakdown ? JSON.stringify(hpp_breakdown) : null,
+    hpp_breakdown: hpp_breakdown ?? null,
     image_url: image_url || null, is_available: is_available ?? true
   }});
   return Response.json(p);

@@ -89,8 +89,8 @@ export async function POST(req: Request) {
           total_revenue: totalRevenue,
           total_cogs: totalCogs,
           gross_profit: grossProfit,
-          payment_method,
-          status: "COMPLETED",
+          payment_method: payment_method as any,
+          status: "COMPLETED" as any,
           amount_paid: paid,
           change_amount: change,
           items: { create: lineItems }

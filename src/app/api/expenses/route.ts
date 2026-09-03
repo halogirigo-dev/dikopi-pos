@@ -23,7 +23,7 @@ export async function POST(req: Request) {
   const { category_id, description, amount, payment_method, expense_date, notes } = body;
   if (!category_id || !description || !amount || !payment_method) return new Response("Missing fields", { status: 400 });
   const e = await prisma.expense.create({ data: {
-    category_id, description, amount: Number(amount), payment_method,
+    category_id, description, amount: Number(amount), payment_method: payment_method as any,
     expense_date: expense_date ? new Date(expense_date) : new Date(),
     created_by: session.user.id, notes: notes || null
   }});
