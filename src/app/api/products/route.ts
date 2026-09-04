@@ -1,8 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { revalidatePath } from "next/cache";
 
 export async function GET() {
+  const session: any = await getServerSession(authOptions);
+  if (!session) return new Response("Unauthorized", { status: 401 });
   const products = await prisma.product.findMany({ include: { category: true }, orderBy: { name: "asc" } });
   return Response.json(products);
 }
@@ -17,5 +20,7 @@ export async function POST(req: Request) {
     hpp_breakdown: hpp_breakdown ?? null,
     image_url: image_url || null, is_available: is_available ?? true
   }});
+  revalidatePath("/pos");
+  revalidatePath("/products");
   return Response.json(p);
 }

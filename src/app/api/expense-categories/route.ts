@@ -1,7 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-export async function GET() { return Response.json(await prisma.expenseCategory.findMany({ orderBy: { name: "asc" }})); }
+export async function GET() {
+  const session: any = await getServerSession(authOptions);
+  if (!session) return new Response("Unauthorized", { status: 401 });
+  return Response.json(await prisma.expenseCategory.findMany({ orderBy: { name: "asc" }}));
+}
 export async function POST(req: Request) {
   const session: any = await getServerSession(authOptions);
   if (!session || session.user.role !== "ADMIN") return new Response("Forbidden", { status: 403 });

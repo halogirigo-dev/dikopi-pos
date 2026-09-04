@@ -9,10 +9,25 @@ export async function GET(req: Request) {
   if (!session) return new Response("Unauthorized", { status: 401 });
   const from = searchParams.get("from");
   const to = searchParams.get("to");
+  const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
+  const limitRaw = parseInt(searchParams.get("limit") || "20", 10) || 20;
+  const limit = Math.min(Math.max(1, limitRaw), 100);
+  const skip = (page - 1) * limit;
   const where: any = {};
   if (from && to) where.created_at = { gte: new Date(from), lte: new Date(to) };
   if (session.user.role === "CASHIER") where.user_id = session.user.id;
-  const data = await prisma.transaction.findMany({ where, include: { user: true, items: true }, orderBy: { created_at: "desc" }, take: 100 });
+  // Use pagination to avoid loading thousands of rows; default 20, max 100
+  // SECURITY: select safe user fields only - never leak password_hash
+  const [data, total] = await Promise.all([
+    prisma.transaction.findMany({ where, include: { user: { select: { id: true, name: true, username: true, role: true } }, items: true }, orderBy: { created_at: "desc" }, skip, take: limit }),
+    prisma.transaction.count({ where }),
+  ]);
+  // If client explicitly paginates, return envelope; otherwise maintain backward-compatible array for old callers
+  const hasPaginationParams = searchParams.has("page") || searchParams.has("limit");
+  if (hasPaginationParams) {
+    return Response.json({ data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
+  }
+  // Backward compat: no pagination params -> return limited array (capped at limit)
   return Response.json(data);
 }
 

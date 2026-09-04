@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { revalidatePath } from "next/cache";
 
 export async function PUT(req: Request, { params }: { params: { id: string }}) {
   const session: any = await getServerSession(authOptions);
@@ -12,11 +13,15 @@ export async function PUT(req: Request, { params }: { params: { id: string }}) {
     hpp_breakdown: hpp_breakdown ?? null,
     image_url: image_url || null, is_available
   }});
+  revalidatePath("/pos");
+  revalidatePath("/products");
   return Response.json(p);
 }
 export async function DELETE(req: Request, { params }: { params: { id: string }}) {
   const session: any = await getServerSession(authOptions);
   if (!session || session.user.role !== "ADMIN") return new Response("Forbidden", { status: 403 });
   await prisma.product.delete({ where: { id: params.id }});
+  revalidatePath("/pos");
+  revalidatePath("/products");
   return Response.json({ ok: true });
 }

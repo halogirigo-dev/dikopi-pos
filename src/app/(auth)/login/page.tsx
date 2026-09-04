@@ -22,11 +22,9 @@ export default function LoginPage() {
       setError("Username atau password salah");
       setLoading(false);
     } else {
-      // fetch session to determine role
-      const sessionRes = await fetch("/api/auth/session");
-      const session = await sessionRes.json();
-      const role = session?.user?.role;
-      router.push(role === "CASHIER" ? "/pos" : "/dashboard");
+      // Optimized: avoid extra /api/auth/session round-trip + avoid redundant refresh.
+      // NextAuth JWT cookie is set; single push to "/" triggers src/app/page.tsx role redirect.
+      router.push("/");
     }
   }
 

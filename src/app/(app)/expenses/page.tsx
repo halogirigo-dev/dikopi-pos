@@ -44,7 +44,7 @@ export default async function ExpensesPage({ searchParams }: { searchParams: { p
   if (from && to) where.expense_date = { gte: from, lte: to };
   if (searchParams.category && searchParams.category !== "all") where.category_id = searchParams.category;
 
-  const expenses = await prisma.expense.findMany({ where, include: { category: true, creator: true }, orderBy: { expense_date: "desc" }, take: 100 });
+  const expenses = await prisma.expense.findMany({ where, include: { category: true, creator: { select: { id: true, name: true, username: true, role: true } } }, orderBy: { expense_date: "desc" }, take: 100 });
 
   return <ExpensesClient categories={categories} expenses={expenses} activeLabel={activeLabel} initialParams={searchParams} />;
 }

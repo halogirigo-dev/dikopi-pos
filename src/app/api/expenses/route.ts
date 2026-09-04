@@ -3,12 +3,27 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
 export async function GET(req: Request) {
+  const session: any = await getServerSession(authOptions);
+  if (!session) return new Response("Unauthorized", { status: 401 });
   const { searchParams } = new URL(req.url);
   const from = searchParams.get("from");
   const to = searchParams.get("to");
+  const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
+  const limitRaw = parseInt(searchParams.get("limit") || "50", 10) || 50;
+  const limit = Math.min(Math.max(1, limitRaw), 100);
+  const skip = (page - 1) * limit;
   const where: any = {};
   if (from && to) where.expense_date = { gte: new Date(from), lte: new Date(to) };
-  const data = await prisma.expense.findMany({ where, include: { category: true, creator: true }, orderBy: { expense_date: "desc" }});
+  const hasPagination = searchParams.has("page") || searchParams.has("limit");
+  if (hasPagination) {
+    const [data, total] = await Promise.all([
+      prisma.expense.findMany({ where, include: { category: true, creator: { select: { id: true, name: true, username: true, role: true } } }, orderBy: { expense_date: "desc" }, skip, take: limit }),
+      prisma.expense.count({ where }),
+    ]);
+    return Response.json({ data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
+  }
+  // SECURITY: select safe creator fields only
+  const data = await prisma.expense.findMany({ where, include: { category: true, creator: { select: { id: true, name: true, username: true, role: true } } }, orderBy: { expense_date: "desc" }, take: 100 });
   return Response.json(data);
 }
 export async function POST(req: Request) {

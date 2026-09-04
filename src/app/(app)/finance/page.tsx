@@ -1,8 +1,14 @@
 import { getFinancialKPI } from "@/lib/finance";
 import { getDateRange, formatRupiah } from "@/lib/utils";
 import FinanceTabs from "./FinanceTabs";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 export default async function FinancePage({ searchParams }: { searchParams: { tab?: string; period?: string }}) {
+  const session: any = await getServerSession(authOptions);
+  if (!session) redirect("/login");
+  if (session.user.role !== "ADMIN") redirect("/pos");
   const tab = searchParams.tab || "overview";
   const period = searchParams.period || "thisMonth";
   const { from, to } = getDateRange(period);

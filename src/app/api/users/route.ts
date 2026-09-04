@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 
 export async function GET() {
+  const session: any = await getServerSession(authOptions);
+  if (!session || session.user.role !== "ADMIN") return new Response("Forbidden", { status: 403 });
   const users = await prisma.user.findMany({ select: { id: true, name: true, username: true, role: true, is_active: true, created_at: true }, orderBy: { created_at: "desc" }});
   return Response.json(users);
 }

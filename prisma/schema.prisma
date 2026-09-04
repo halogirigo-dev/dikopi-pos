@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
@@ -31,16 +31,16 @@ enum AdjustmentType {
 }
 
 model User {
-  id            String         @id @default(cuid())
-  name          String
-  username      String         @unique
-  password_hash String
-  role          Role           @default(CASHIER)
-  is_active     Boolean        @default(true)
-  created_at    DateTime       @default(now())
-  updated_at    DateTime       @updatedAt
-  transactions  Transaction[]
-  expenses      Expense[]
+  id              String           @id @default(cuid())
+  name            String
+  username        String           @unique
+  password_hash   String
+  role            Role             @default(CASHIER)
+  is_active       Boolean          @default(true)
+  created_at      DateTime         @default(now())
+  updated_at      DateTime         @updatedAt
+  transactions    Transaction[]
+  expenses        Expense[]
   cashAdjustments CashAdjustment[]
 }
 
@@ -66,6 +66,8 @@ model Product {
   updated_at    DateTime @updatedAt
 
   @@index([category_id])
+  @@index([is_available])
+  @@index([category_id, is_available])
 }
 
 model Transaction {
@@ -89,20 +91,23 @@ model Transaction {
   @@index([created_at])
   @@index([status])
   @@index([user_id])
+  @@index([status, created_at])
+  @@index([user_id, created_at])
+  @@index([user_id, status, created_at])
 }
 
 model TransactionItem {
-  id            String      @id @default(cuid())
+  id             String      @id @default(cuid())
   transaction_id String
-  transaction   Transaction @relation(fields: [transaction_id], references: [id], onDelete: Cascade)
-  product_id    String
-  product_name  String
-  selling_price Int
-  cost_price    Int
-  quantity      Int
-  revenue       Int
-  cogs          Int
-  gross_profit  Int
+  transaction    Transaction @relation(fields: [transaction_id], references: [id], onDelete: Cascade)
+  product_id     String
+  product_name   String
+  selling_price  Int
+  cost_price     Int
+  quantity       Int
+  revenue        Int
+  cogs           Int
+  gross_profit   Int
 
   @@index([transaction_id])
   @@index([product_id])
@@ -132,6 +137,8 @@ model Expense {
 
   @@index([expense_date])
   @@index([category_id])
+  @@index([created_by])
+  @@index([expense_date, category_id])
 }
 
 model CashAdjustment {
@@ -144,6 +151,8 @@ model CashAdjustment {
   created_at  DateTime       @default(now())
 
   @@index([created_at])
+  @@index([type, created_at])
+  @@index([created_by])
 }
 
 model Setting {

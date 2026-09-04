@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
 export async function GET() {
+  const session: any = await getServerSession(authOptions);
+  if (!session) return new Response("Unauthorized", { status: 401 });
   const all = await prisma.setting.findMany();
   const obj: Record<string,string> = {};
   all.forEach(s=>obj[s.key]=s.value);

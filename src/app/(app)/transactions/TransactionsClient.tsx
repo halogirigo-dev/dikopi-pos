@@ -3,7 +3,7 @@ import { formatRupiah } from "@/lib/utils";
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-export default function TransactionsClient({ transactions, isAdmin, activeLabel, initialParams }: { transactions:any[]; isAdmin:boolean; activeLabel:string; initialParams:any }){
+export default function TransactionsClient({ transactions, isAdmin, activeLabel, initialParams, pagination }: { transactions:any[]; isAdmin:boolean; activeLabel:string; initialParams:any; pagination?: { page:number; limit:number; total:number; totalPages:number } }){
   const router = useRouter();
   const sp = useSearchParams();
   const [filter,setFilter]=useState("");
@@ -19,10 +19,11 @@ export default function TransactionsClient({ transactions, isAdmin, activeLabel,
       if(!v) q.delete(k);
       else q.set(k,v);
     });
-    // clean conflicting keys
-    if(params.date) { q.delete("month"); q.delete("period"); q.delete("from"); q.delete("to"); }
-    if(params.month) { q.delete("date"); q.delete("period"); q.delete("from"); q.delete("to"); }
-    if(params.period) { q.delete("date"); q.delete("month"); if(params.period==="all"){ q.delete("period"); q.delete("from"); q.delete("to"); } }
+    // clean conflicting keys and reset pagination on filter change
+    if(params.date) { q.delete("month"); q.delete("period"); q.delete("from"); q.delete("to"); q.delete("page"); }
+    if(params.month) { q.delete("date"); q.delete("period"); q.delete("from"); q.delete("to"); q.delete("page"); }
+    if(params.period) { q.delete("date"); q.delete("month"); q.delete("page"); if(params.period==="all"){ q.delete("period"); q.delete("from"); q.delete("to"); } }
+    if(params.from || params.to) q.delete("page");
     router.push(`/transactions?${q.toString()}`);
   }
 
@@ -82,6 +83,16 @@ export default function TransactionsClient({ transactions, isAdmin, activeLabel,
       </div>
 
       <input className="input" placeholder="Search invoice..." value={filter} onChange={e=>setFilter(e.target.value)} />
+
+      {pagination && pagination.totalPages > 1 && (
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:12, gap:8 }}>
+          <span className="muted" style={{ fontSize:12 }}>Hal {pagination.page}/{pagination.totalPages} • {pagination.total} transaksi</span>
+          <div style={{ display:"flex", gap:8 }}>
+            <button className="btn" style={{ minHeight:36, opacity: pagination.page <= 1 ? .5 : 1 }} disabled={pagination.page <= 1} onClick={()=> push({ page: String(pagination.page - 1) } as any)}>‹ Prev</button>
+            <button className="btn" style={{ minHeight:36, opacity: pagination.page >= pagination.totalPages ? .5 : 1 }} disabled={pagination.page >= pagination.totalPages} onClick={()=> push({ page: String(pagination.page + 1) } as any)}>Next ›</button>
+          </div>
+        </div>
+      )}
 
       <div style={{ display:"grid", gap:12, marginTop:12 }}>
         {filtered.map(t=> (

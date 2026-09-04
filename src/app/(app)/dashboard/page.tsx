@@ -3,7 +3,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { formatRupiah } from "@/lib/utils";
-import { prisma } from "@/lib/prisma";
 import DashboardClient from "./DashboardClient";
 
 export default async function DashboardPage({ searchParams }: { searchParams: { period?: string }}) {
@@ -14,9 +13,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
   const period = searchParams.period || "today";
   const { getDateRange } = await import("@/lib/utils");
   const { from, to } = getDateRange(period);
-  const kpi = await getFinancialKPI(from, to);
-  const sales = await getSalesReport(from,to);
-  const topProducts = await getProductPerformance(from,to);
+  // Parallelize KPI + sales + topProducts to reduce waterfall latency
+  const [kpi, sales, topProducts] = await Promise.all([
+    getFinancialKPI(from, to),
+    getSalesReport(from, to),
+    getProductPerformance(from, to),
+  ]);
 
   return (
     <div>

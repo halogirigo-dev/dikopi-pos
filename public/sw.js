@@ -1,5 +1,5 @@
-/* DIKOPI PWA Service Worker */
-const CACHE_NAME = "dikopi-v1";
+/* DIKOPI PWA Service Worker - v2: API is network-only, old v1 API caches purged */
+const CACHE_NAME = "dikopi-v2";
 const STATIC_ASSETS = [
   "/",
   "/manifest.json",
@@ -39,20 +39,10 @@ self.addEventListener("fetch", (event) => {
   // Skip non-GET
   if (req.method !== "GET") return;
 
-  // API requests: network-first
+  // API requests: NEVER cache sensitive data (auth, transactions, reports, etc.)
+  // Must be network-only to prevent stale POS data and security leaks.
   if (url.pathname.startsWith("/api/")) {
-    event.respondWith(
-      fetch(req)
-        .then((res) => {
-          // Optionally cache successful GET API responses for offline
-          if (res.ok) {
-            const clone = res.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
-          }
-          return res;
-        })
-        .catch(() => caches.match(req))
-    );
+    event.respondWith(fetch(req));
     return;
   }
 

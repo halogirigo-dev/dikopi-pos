@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useCart } from "@/hooks/useCart";
 import { formatRupiah } from "@/lib/utils";
 
@@ -19,11 +19,16 @@ export default function POSClient({ categories, products }: { categories: Cat[];
   const [success, setSuccess] = useState<any>(null);
   const cart = useCart();
 
-  const filtered = products.filter(p=> {
-    if (activeCat !== "All" && p.category.name !== activeCat) return false;
-    if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
+  // Instant client-side filtering: category + search never hits DB
+  // Memoized to avoid re-filter on every render (cart changes, etc.)
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return products.filter(p=> {
+      if (activeCat !== "All" && p.category.name !== activeCat) return false;
+      if (q && !p.name.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [products, activeCat, search]);
 
   const total = cart.total();
   const count = cart.count();
