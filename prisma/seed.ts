@@ -36,12 +36,19 @@ async function main() {
   const snack = await prisma.category.findUnique({ where: { name: "Snack" }});
 
   const products = [
-    { name: "Es Kopi Susu", category_id: coffee!.id, selling_price: 18000, cost_price: 7000, hpp_breakdown: [{name:"Kopi 15gr",cost:2500},{name:"Susu 100ml",cost:3000},{name:"Gula+cup",cost:1500}] },
-    { name: "Americano", category_id: coffee!.id, selling_price: 15000, cost_price: 4000 },
-    { name: "Matcha Latte", category_id: nonCoffee!.id, selling_price: 20000, cost_price: 8500 },
-    { name: "Cappuccino", category_id: coffee!.id, selling_price: 18000, cost_price: 6500 },
-    { name: "Croissant", category_id: snack!.id, selling_price: 15000, cost_price: 6000 },
-    { name: "Nasi Goreng", category_id: food!.id, selling_price: 25000, cost_price: 10000 },
+    { name: "Espresso", category_id: coffee!.id, selling_price: 10000, cost_price: 4500, hpp_breakdown: [{name:"Espresso",cost:3000},{name:"Cup & operasional",cost:1500}] },
+    { name: "Iced Americano", category_id: coffee!.id, selling_price: 17000, cost_price: 5000, hpp_breakdown: [{name:"Espresso",cost:3000},{name:"water",cost:200},{name:"ice",cost:300},{name:"Cup & operasional",cost:1500}] },
+    { name: "Caramel Latte", category_id: coffee!.id, selling_price: 17000, cost_price: 8500, hpp_breakdown: [{name:"Espresso",cost:3000},{name:"milk",cost:2500},{name:"caramel syrup",cost:2000},{name:"cream",cost:2000},{name:"Cup & operasional",cost:1500}] },
+    { name: "Hazelnut Latte", category_id: coffee!.id, selling_price: 17000, cost_price: 8500, hpp_breakdown: [{name:"Espresso",cost:3000},{name:"milk",cost:2500},{name:"hazelnut syrup",cost:2000},{name:"cream",cost:2000},{name:"Cup & operasional",cost:1500}] },
+    { name: "Butterscotch", category_id: coffee!.id, selling_price: 17000, cost_price: 8500, hpp_breakdown: [{name:"Espresso",cost:3000},{name:"milk",cost:2500},{name:"butterscotch syrup",cost:2000},{name:"cream",cost:2000},{name:"Cup & operasional",cost:1500}] },
+    { name: "Cappuccino", category_id: coffee!.id, selling_price: 17000, cost_price: 7000, hpp_breakdown: [{name:"Espresso",cost:3000},{name:"milk",cost:2500},{name:"Cup & operasional",cost:1500}] },
+    { name: "Black Peach / Americano Peach", category_id: coffee!.id, selling_price: 18000, cost_price: 6700, hpp_breakdown: [{name:"Espresso",cost:3000},{name:"peach syrup",cost:2000},{name:"water",cost:200},{name:"Cup & operasional",cost:1500}] },
+    { name: "Matcha Latte", category_id: nonCoffee!.id, selling_price: 15000, cost_price: 7500, hpp_breakdown: [{name:"Matcha",cost:4000},{name:"milk",cost:2500},{name:"cream",cost:2000},{name:"Cup & operasional",cost:1500}] },
+    { name: "Matcha Nut", category_id: nonCoffee!.id, selling_price: 17000, cost_price: 8500, hpp_breakdown: [{name:"Matcha",cost:4000},{name:"cream",cost:2000},{name:"nut syrup",cost:2000},{name:"Cup & operasional",cost:1500}] },
+    { name: "Chocolate Latte", category_id: nonCoffee!.id, selling_price: 15000, cost_price: 6500, hpp_breakdown: [{name:"Cocoa powder",cost:2500},{name:"milk",cost:2500},{name:"Cup & operasional",cost:1500}] },
+    { name: "Chocolate Creamy Nut", category_id: nonCoffee!.id, selling_price: 17000, cost_price: 8000, hpp_breakdown: [{name:"Cocoa powder",cost:2500},{name:"cream",cost:2000},{name:"nut syrup",cost:2000},{name:"Cup & operasional",cost:1500}] },
+    { name: "Peach Coffee Latte", category_id: coffee!.id, selling_price: 17000, cost_price: 8500, hpp_breakdown: [{name:"Espresso",cost:3000},{name:"milk",cost:2500},{name:"peach syrup",cost:2000},{name:"cream",cost:2000},{name:"Cup & operasional",cost:1500}] },
+    { name: "Dikopispace", category_id: coffee!.id, selling_price: 17000, cost_price: 8500, hpp_breakdown: [{name:"Espresso",cost:3000},{name:"milk",cost:2500},{name:"gula aren",cost:1500},{name:"cream",cost:2000},{name:"Cup & operasional",cost:1500}] },
   ];
   for (const p of products) {
     const exists = await prisma.product.findFirst({ where: { name: p.name }});
