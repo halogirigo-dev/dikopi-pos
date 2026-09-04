@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import DashboardClient from "./DashboardClient";
 import { Suspense } from "react";
 import DashboardData from "./DashboardData";
+import RealtimeRefresher from "@/components/RealtimeRefresher";
 
 export default async function DashboardPage({ searchParams }: { searchParams: { period?: string }}) {
   const session: any = await getServerSession(authOptions);
@@ -14,6 +15,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
 
   return (
     <div>
+      <RealtimeRefresher tables={["Transaction", "TransactionItem", "Expense"]} intervalMs={12000} />
       {/* Header - renders instantly, no DB wait */}
       <div style={{ marginBottom:16 }}>
         <div className="muted" style={{ fontSize:12 }}>{new Date().toLocaleDateString("id-ID",{ weekday:"long", day:"numeric", month:"long", year:"numeric"})}</div>

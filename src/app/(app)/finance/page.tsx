@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import FinanceData from "./FinanceData";
+import RealtimeRefresher from "@/components/RealtimeRefresher";
 
 export default async function FinancePage({ searchParams }: { searchParams: { tab?: string; period?: string }}) {
   const session: any = await getServerSession(authOptions);
@@ -15,6 +16,7 @@ export default async function FinancePage({ searchParams }: { searchParams: { ta
 
   return (
     <div>
+      <RealtimeRefresher tables={["Transaction", "Expense", "CashAdjustment"]} intervalMs={15000} />
       <FinanceTabs tab={tab} period={period} />
       <Suspense fallback={<FinanceSkeleton />}>
         <FinanceData tab={tab} period={period} />

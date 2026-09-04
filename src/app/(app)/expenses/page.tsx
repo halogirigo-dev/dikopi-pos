@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import ExpensesClient from "./ExpensesClient";
 import { getDateRange } from "@/lib/utils";
+import RealtimeRefresher from "@/components/RealtimeRefresher";
 
 export default async function ExpensesPage({ searchParams }: { searchParams: { period?: string; date?: string; month?: string; category?: string; from?: string; to?: string } }) {
   const categories = await prisma.expenseCategory.findMany({ orderBy: { name: "asc" }});
@@ -46,5 +47,10 @@ export default async function ExpensesPage({ searchParams }: { searchParams: { p
 
   const expenses = await prisma.expense.findMany({ where, include: { category: true, creator: { select: { id: true, name: true, username: true, role: true } } }, orderBy: { expense_date: "desc" }, take: 100 });
 
-  return <ExpensesClient categories={categories} expenses={expenses} activeLabel={activeLabel} initialParams={searchParams} />;
+  return (
+    <>
+      <RealtimeRefresher tables={["Expense"]} intervalMs={12000} />
+      <ExpensesClient categories={categories} expenses={expenses} activeLabel={activeLabel} initialParams={searchParams} />
+    </>
+  );
 }
