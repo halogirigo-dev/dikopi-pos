@@ -22,10 +22,10 @@ export default function AppNav({ role, userName }: { role: string; userName: str
         <div className="logo">DIK<span>O</span>PI</div>
         <div className="section">SALES</div>
         <div className="nav">
-          <Link href="/pos" className={path.startsWith("/pos") ? "active" : ""} style={{ display: "flex", width: "100%", textDecoration: "none" }}>
+          <Link href="/pos" prefetch className={path.startsWith("/pos") ? "active" : ""} style={{ display: "flex", width: "100%", textDecoration: "none" }}>
             <button className={path.startsWith("/pos") ? "active" : ""} style={{ width: "100%" }}><span className="ico">＋</span><span>POS</span></button>
           </Link>
-          <Link href="/transactions" className={path.startsWith("/transactions") ? "active" : ""} style={{ display: "flex", width: "100%", textDecoration: "none" }}>
+          <Link href="/transactions" prefetch className={path.startsWith("/transactions") ? "active" : ""} style={{ display: "flex", width: "100%", textDecoration: "none" }}>
             <button className={path.startsWith("/transactions") ? "active" : ""} style={{ width: "100%" }}><span className="ico">▤</span><span>Transactions</span></button>
           </Link>
         </div>
@@ -47,7 +47,7 @@ export default function AppNav({ role, userName }: { role: string; userName: str
               const isProductPerf = it.label === "Product Performance";
               const activePerf = isProductPerf && typeof window !== "undefined" && window.location.search.includes("view=products") && path.startsWith("/reports");
               return (
-                <Link key={it.href} href={it.href} style={{ textDecoration: "none" }}>
+                <Link key={it.href} href={it.href} prefetch style={{ textDecoration: "none" }}>
                   <button className={active || activePerf ? "active" : ""}><span className="ico">{it.ico}</span><span>{it.label}</span></button>
                 </Link>
               );

@@ -3,6 +3,8 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import AppNav from "@/components/dashboard/AppNav";
 import BottomNav from "@/components/mobile/BottomNav";
+import RouteProgress from "@/components/mobile/RouteProgress";
+import { Suspense } from "react";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session: any = await getServerSession(authOptions);
@@ -11,6 +13,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="app">
       <AppNav role={session.user.role} userName={session.user.name} />
       <div className="main">
+        <Suspense fallback={null}>
+          <RouteProgress />
+        </Suspense>
         <header className="topbar">
           <div>
             <div className="page-title">DIKOPI</div>

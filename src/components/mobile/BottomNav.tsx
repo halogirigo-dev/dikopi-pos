@@ -27,14 +27,14 @@ export default function BottomNav({ role }: { role: string }) {
         const active = path === it.href || path.startsWith(it.href + "/") || (it.href === "/finance" && path.startsWith("/finance"));
         if ((it as any).cta) {
           return (
-            <Link key={it.href} href={it.href} className={`pos-cta ${active ? "active" : ""}`} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minWidth: 64 }}>
+            <Link key={it.href} href={it.href} prefetch className={`pos-cta ${active ? "active" : ""}`} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minWidth: 64 }}>
               <span className="ico" style={{ fontSize: 20 }}>{it.ico}</span>
               <span style={{ fontSize: 10, fontWeight: 700 }}>{it.label}</span>
             </Link>
           );
         }
         return (
-          <Link key={it.href} href={it.href} className={active ? "active" : ""}>
+          <Link key={it.href} href={it.href} prefetch className={active ? "active" : ""}>
             <span className="ico">{it.ico}</span>
             <span>{it.label}</span>
           </Link>
