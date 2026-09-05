@@ -8,6 +8,9 @@ import RealtimeRefresher from "@/components/RealtimeRefresher";
 import { FeatureTourClient } from "@/components/onboarding/FeatureTourClient";
 import { DASHBOARD_TOUR } from "@/components/onboarding/data";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function DashboardPage({ searchParams }: { searchParams: { period?: string }}) {
   const session: any = await getServerSession(authOptions);
   if (!session) redirect("/login");

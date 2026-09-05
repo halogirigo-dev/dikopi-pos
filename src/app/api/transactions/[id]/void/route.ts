@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { revalidatePath } from "next/cache";
 
 export async function POST(req: Request, { params }: { params: { id: string }}) {
   const session: any = await getServerSession(authOptions);
@@ -11,5 +12,12 @@ export async function POST(req: Request, { params }: { params: { id: string }}) 
     where: { id: params.id },
     data: { status: "VOID" as any, voided_by: session.user.id, voided_at: new Date(), void_reason: reason }
   });
+  try {
+    revalidatePath("/dashboard");
+    revalidatePath("/finance");
+    revalidatePath("/cashflow");
+    revalidatePath("/reports");
+    revalidatePath("/transactions");
+  } catch {}
   return Response.json(tx);
 }

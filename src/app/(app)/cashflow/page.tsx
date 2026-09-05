@@ -3,6 +3,9 @@ import { getDateRange, formatRupiah } from "@/lib/utils";
 import { FeatureTourClient } from "@/components/onboarding/FeatureTourClient";
 import { CASHFLOW_TOUR } from "@/components/onboarding/data";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function CashflowPage({ searchParams }: { searchParams: { period?: string }}) {
   const period = searchParams.period || "thisMonth";
   const { from, to } = getDateRange(period);

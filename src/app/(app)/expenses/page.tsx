@@ -3,6 +3,9 @@ import ExpensesClient from "./ExpensesClient";
 import { getDateRange } from "@/lib/utils";
 import RealtimeRefresher from "@/components/RealtimeRefresher";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function ExpensesPage({ searchParams }: { searchParams: { period?: string; date?: string; month?: string; category?: string; from?: string; to?: string } }) {
   const categories = await prisma.expenseCategory.findMany({ orderBy: { name: "asc" }});
 

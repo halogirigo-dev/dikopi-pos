@@ -4,6 +4,9 @@ import ReportsClient from "./ReportsClient";
 import { FeatureTourClient } from "@/components/onboarding/FeatureTourClient";
 import { REPORTS_TOUR } from "@/components/onboarding/data";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function ReportsPage({ searchParams }: { searchParams: { period?: string; view?: string }}) {
   const period = searchParams.period || "thisMonth";
   const view = searchParams.view || "";

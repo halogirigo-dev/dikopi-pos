@@ -7,6 +7,9 @@ import RealtimeRefresher from "@/components/RealtimeRefresher";
 import { FeatureTourClient } from "@/components/onboarding/FeatureTourClient";
 import { TRANSACTIONS_TOUR } from "@/components/onboarding/data";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function TransactionsPage({ searchParams }: { searchParams: { period?: string; date?: string; month?: string; from?: string; to?: string; page?: string; limit?: string } }) {
   const session: any = await getServerSession(authOptions);
   const baseWhere: any = session.user.role === "CASHIER" ? { user_id: session.user.id } : {};

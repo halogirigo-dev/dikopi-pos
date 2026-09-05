@@ -1,5 +1,6 @@
 "use client";
 import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useCart } from "@/hooks/useCart";
 import { formatRupiah } from "@/lib/utils";
 import { useOnboarding } from "@/components/onboarding/OnboardingContext";
@@ -18,6 +19,7 @@ export default function POSClient({ categories, products }: { categories: Cat[];
   const [showPayment, setShowPayment] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState<any>(null);
+  const router = useRouter();
   const cart = useCart();
   const { state: obState, isCompleted, markCompleted } = useOnboarding();
   const [showPosTour, setShowPosTour] = useState(false);
@@ -60,6 +62,10 @@ export default function POSClient({ categories, products }: { categories: Cat[];
       setShowCart(false);
       cart.clear();
       setAmountPaid("");
+      // paksa revalidate agar Dashboard/Finance langsung terupdate saat navigasi
+      router.refresh();
+      // juga trigger event untuk RealtimeRefresher di halaman lain yang sedang terbuka
+      if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("dikopi:refresh"));
     } else alert(await res.text());
     setLoading(false);
   }

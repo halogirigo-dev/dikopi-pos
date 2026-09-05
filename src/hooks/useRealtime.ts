@@ -19,6 +19,16 @@ export function useRealtimeRefresh(tables: Table[], opts?: { intervalMs?: number
       router.refresh();
     }
 
+    // juga refresh saat POS selesai transaksi di tab yang sama (custom event) atau saat tab kembali fokus
+    const onCustom = () => refresh();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    const onFocus = () => refresh();
+    window.addEventListener("dikopi:refresh" as any, onCustom);
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onFocus);
+
     if (supa) {
       channel = supa
         .channel("dikopi-realtime")
@@ -55,14 +65,18 @@ export function useRealtimeRefresh(tables: Table[], opts?: { intervalMs?: number
         .subscribe();
     }
 
-    // Fallback polling jika Realtime tidak aktif (env belum set) atau sebagai backup
+    // Fallback polling — selalu aktif sebagai backup jika realtime delay/gagal
+    // polling ringan 12-15s, router.refresh() akan revalidate server components
     interval = setInterval(() => {
-      if (!supa) refresh();
+      refresh();
     }, intervalMs);
 
     return () => {
       if (channel && supa) supa.removeChannel(channel);
       if (interval) clearInterval(interval);
+      window.removeEventListener("dikopi:refresh" as any, onCustom);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onFocus);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tablesKey, intervalMs]);

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { generateInvoiceNumber } from "@/lib/utils";
+import { revalidatePath } from "next/cache";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -112,6 +113,15 @@ export async function POST(req: Request) {
         },
         include: { items: true }
       });
+      // paksa revalidate agar Dashboard/Finance/Cashflow/Reports/Transactions langsung fresh saat navigasi berikutnya
+      try {
+        revalidatePath("/dashboard");
+        revalidatePath("/finance");
+        revalidatePath("/cashflow");
+        revalidatePath("/reports");
+        revalidatePath("/transactions");
+        revalidatePath("/pos");
+      } catch {}
       return Response.json(tx);
     } catch (e: any) {
       if (e.code === "P2002") {

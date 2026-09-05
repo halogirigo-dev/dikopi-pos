@@ -9,6 +9,9 @@ import RealtimeRefresher from "@/components/RealtimeRefresher";
 import { FeatureTourClient } from "@/components/onboarding/FeatureTourClient";
 import { FINANCE_TOUR } from "@/components/onboarding/data";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function FinancePage({ searchParams }: { searchParams: { tab?: string; period?: string }}) {
   const session: any = await getServerSession(authOptions);
   if (!session) redirect("/login");

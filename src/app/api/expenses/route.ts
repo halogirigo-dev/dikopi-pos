@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { revalidatePath } from "next/cache";
 
 export async function GET(req: Request) {
   const session: any = await getServerSession(authOptions);
@@ -42,5 +43,6 @@ export async function POST(req: Request) {
     expense_date: expense_date ? new Date(expense_date) : new Date(),
     created_by: session.user.id, notes: notes || null
   }});
+  try { revalidatePath("/dashboard"); revalidatePath("/finance"); revalidatePath("/expenses"); revalidatePath("/cashflow"); revalidatePath("/reports"); } catch {}
   return Response.json(e);
 }
