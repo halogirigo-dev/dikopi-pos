@@ -2,11 +2,10 @@
 import { useState, useMemo } from "react";
 import { useCart } from "@/hooks/useCart";
 import { formatRupiah } from "@/lib/utils";
+import { getProductImage, getFallbackPicsum } from "@/lib/placeholder";
 
 type Cat = { id: string; name: string };
 type Prod = { id: string; name: string; selling_price: number; cost_price: number; category_id: string; category: Cat; image_url?: string | null };
-
-const icons: Record<string,string> = { Coffee:"☕", "Non Coffee":"🍵", Food:"🥐", Snack:"🍟" };
 
 export default function POSClient({ categories, products }: { categories: Cat[]; products: Prod[] }) {
   const [activeCat, setActiveCat] = useState<string>("All");
@@ -74,7 +73,15 @@ export default function POSClient({ categories, products }: { categories: Cat[];
       <div className="products">
         {filtered.map(p=> (
           <div key={p.id} className="product">
-            <div className="prod-img">{icons[p.category.name]||"☕"}</div>
+            <div className="prod-img">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={getProductImage(p)}
+                alt={p.name}
+                loading="lazy"
+                onError={(e)=>{ const t=e.currentTarget; if(!t.dataset.fallback){ t.dataset.fallback="1"; t.src=getFallbackPicsum(p.id); } }}
+              />
+            </div>
             <div className="prod-info">
               <div className="prod-name">{p.name}</div>
               <div className="price">{formatRupiah(p.selling_price)}</div>

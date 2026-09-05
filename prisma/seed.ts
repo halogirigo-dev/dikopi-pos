@@ -35,24 +35,39 @@ async function main() {
   const food = await prisma.category.findUnique({ where: { name: "Food" }});
   const snack = await prisma.category.findUnique({ where: { name: "Snack" }});
 
+  // Free stock images (Unsplash) - deterministic per menu name
+  const IMG = {
+    espresso: "https://images.unsplash.com/photo-1510707577719-ae7c14805e3a?w=400&h=400&fit=crop&auto=format&q=80",
+    americano: "https://images.unsplash.com/photo-1447933601403-0c6688de566e?w=400&h=400&fit=crop&auto=format&q=80",
+    latte: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&h=400&fit=crop&auto=format&q=80",
+    cappuccino: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=400&h=400&fit=crop&auto=format&q=80",
+    beans: "https://images.unsplash.com/photo-1511920170033-f8396924c348?w=400&h=400&fit=crop&auto=format&q=80",
+    matcha: "https://images.unsplash.com/photo-1515825838458-f2a94b20105a?w=400&h=400&fit=crop&auto=format&q=80",
+    chocolate: "https://images.unsplash.com/photo-1578328819058-b69f3a3b0f6b?w=400&h=400&fit=crop&auto=format&q=80",
+    peach: "https://images.unsplash.com/photo-1544148103-005eec06c04d?w=400&h=400&fit=crop&auto=format&q=80",
+  };
+
   const products = [
-    { name: "Espresso", category_id: coffee!.id, selling_price: 10000, cost_price: 4500, hpp_breakdown: [{name:"Espresso",cost:3000},{name:"Cup & operasional",cost:1500}] },
-    { name: "Iced Americano", category_id: coffee!.id, selling_price: 17000, cost_price: 5000, hpp_breakdown: [{name:"Espresso",cost:3000},{name:"water",cost:200},{name:"ice",cost:300},{name:"Cup & operasional",cost:1500}] },
-    { name: "Caramel Latte", category_id: coffee!.id, selling_price: 17000, cost_price: 8500, hpp_breakdown: [{name:"Espresso",cost:3000},{name:"milk",cost:2500},{name:"caramel syrup",cost:2000},{name:"cream",cost:2000},{name:"Cup & operasional",cost:1500}] },
-    { name: "Hazelnut Latte", category_id: coffee!.id, selling_price: 17000, cost_price: 8500, hpp_breakdown: [{name:"Espresso",cost:3000},{name:"milk",cost:2500},{name:"hazelnut syrup",cost:2000},{name:"cream",cost:2000},{name:"Cup & operasional",cost:1500}] },
-    { name: "Butterscotch", category_id: coffee!.id, selling_price: 17000, cost_price: 8500, hpp_breakdown: [{name:"Espresso",cost:3000},{name:"milk",cost:2500},{name:"butterscotch syrup",cost:2000},{name:"cream",cost:2000},{name:"Cup & operasional",cost:1500}] },
-    { name: "Cappuccino", category_id: coffee!.id, selling_price: 17000, cost_price: 7000, hpp_breakdown: [{name:"Espresso",cost:3000},{name:"milk",cost:2500},{name:"Cup & operasional",cost:1500}] },
-    { name: "Black Peach / Americano Peach", category_id: coffee!.id, selling_price: 18000, cost_price: 6700, hpp_breakdown: [{name:"Espresso",cost:3000},{name:"peach syrup",cost:2000},{name:"water",cost:200},{name:"Cup & operasional",cost:1500}] },
-    { name: "Matcha Latte", category_id: nonCoffee!.id, selling_price: 15000, cost_price: 7500, hpp_breakdown: [{name:"Matcha",cost:4000},{name:"milk",cost:2500},{name:"cream",cost:2000},{name:"Cup & operasional",cost:1500}] },
-    { name: "Matcha Nut", category_id: nonCoffee!.id, selling_price: 17000, cost_price: 8500, hpp_breakdown: [{name:"Matcha",cost:4000},{name:"cream",cost:2000},{name:"nut syrup",cost:2000},{name:"Cup & operasional",cost:1500}] },
-    { name: "Chocolate Latte", category_id: nonCoffee!.id, selling_price: 15000, cost_price: 6500, hpp_breakdown: [{name:"Cocoa powder",cost:2500},{name:"milk",cost:2500},{name:"Cup & operasional",cost:1500}] },
-    { name: "Chocolate Creamy Nut", category_id: nonCoffee!.id, selling_price: 17000, cost_price: 8000, hpp_breakdown: [{name:"Cocoa powder",cost:2500},{name:"cream",cost:2000},{name:"nut syrup",cost:2000},{name:"Cup & operasional",cost:1500}] },
-    { name: "Peach Coffee Latte", category_id: coffee!.id, selling_price: 17000, cost_price: 8500, hpp_breakdown: [{name:"Espresso",cost:3000},{name:"milk",cost:2500},{name:"peach syrup",cost:2000},{name:"cream",cost:2000},{name:"Cup & operasional",cost:1500}] },
-    { name: "Dikopispace", category_id: coffee!.id, selling_price: 17000, cost_price: 8500, hpp_breakdown: [{name:"Espresso",cost:3000},{name:"milk",cost:2500},{name:"gula aren",cost:1500},{name:"cream",cost:2000},{name:"Cup & operasional",cost:1500}] },
+    { name: "Espresso", category_id: coffee!.id, selling_price: 10000, cost_price: 4500, hpp_breakdown: [{name:"Espresso",cost:3000},{name:"Cup & operasional",cost:1500}], image_url: IMG.espresso },
+    { name: "Iced Americano", category_id: coffee!.id, selling_price: 17000, cost_price: 5000, hpp_breakdown: [{name:"Espresso",cost:3000},{name:"water",cost:200},{name:"ice",cost:300},{name:"Cup & operasional",cost:1500}], image_url: IMG.americano },
+    { name: "Caramel Latte", category_id: coffee!.id, selling_price: 17000, cost_price: 8500, hpp_breakdown: [{name:"Espresso",cost:3000},{name:"milk",cost:2500},{name:"caramel syrup",cost:2000},{name:"cream",cost:2000},{name:"Cup & operasional",cost:1500}], image_url: IMG.latte },
+    { name: "Hazelnut Latte", category_id: coffee!.id, selling_price: 17000, cost_price: 8500, hpp_breakdown: [{name:"Espresso",cost:3000},{name:"milk",cost:2500},{name:"hazelnut syrup",cost:2000},{name:"cream",cost:2000},{name:"Cup & operasional",cost:1500}], image_url: IMG.latte },
+    { name: "Butterscotch", category_id: coffee!.id, selling_price: 17000, cost_price: 8500, hpp_breakdown: [{name:"Espresso",cost:3000},{name:"milk",cost:2500},{name:"butterscotch syrup",cost:2000},{name:"cream",cost:2000},{name:"Cup & operasional",cost:1500}], image_url: IMG.cappuccino },
+    { name: "Cappuccino", category_id: coffee!.id, selling_price: 17000, cost_price: 7000, hpp_breakdown: [{name:"Espresso",cost:3000},{name:"milk",cost:2500},{name:"Cup & operasional",cost:1500}], image_url: IMG.cappuccino },
+    { name: "Black Peach / Americano Peach", category_id: coffee!.id, selling_price: 18000, cost_price: 6700, hpp_breakdown: [{name:"Espresso",cost:3000},{name:"peach syrup",cost:2000},{name:"water",cost:200},{name:"Cup & operasional",cost:1500}], image_url: IMG.peach },
+    { name: "Matcha Latte", category_id: nonCoffee!.id, selling_price: 15000, cost_price: 7500, hpp_breakdown: [{name:"Matcha",cost:4000},{name:"milk",cost:2500},{name:"cream",cost:2000},{name:"Cup & operasional",cost:1500}], image_url: IMG.matcha },
+    { name: "Matcha Nut", category_id: nonCoffee!.id, selling_price: 17000, cost_price: 8500, hpp_breakdown: [{name:"Matcha",cost:4000},{name:"cream",cost:2000},{name:"nut syrup",cost:2000},{name:"Cup & operasional",cost:1500}], image_url: IMG.matcha },
+    { name: "Chocolate Latte", category_id: nonCoffee!.id, selling_price: 15000, cost_price: 6500, hpp_breakdown: [{name:"Cocoa powder",cost:2500},{name:"milk",cost:2500},{name:"Cup & operasional",cost:1500}], image_url: IMG.chocolate },
+    { name: "Chocolate Creamy Nut", category_id: nonCoffee!.id, selling_price: 17000, cost_price: 8000, hpp_breakdown: [{name:"Cocoa powder",cost:2500},{name:"cream",cost:2000},{name:"nut syrup",cost:2000},{name:"Cup & operasional",cost:1500}], image_url: IMG.chocolate },
+    { name: "Peach Coffee Latte", category_id: coffee!.id, selling_price: 17000, cost_price: 8500, hpp_breakdown: [{name:"Espresso",cost:3000},{name:"milk",cost:2500},{name:"peach syrup",cost:2000},{name:"cream",cost:2000},{name:"Cup & operasional",cost:1500}], image_url: IMG.peach },
+    { name: "Dikopispace", category_id: coffee!.id, selling_price: 17000, cost_price: 8500, hpp_breakdown: [{name:"Espresso",cost:3000},{name:"milk",cost:2500},{name:"gula aren",cost:1500},{name:"cream",cost:2000},{name:"Cup & operasional",cost:1500}], image_url: IMG.beans },
   ];
   for (const p of products) {
     const exists = await prisma.product.findFirst({ where: { name: p.name }});
     if (!exists) await prisma.product.create({ data: p as any });
+    else if (!(exists as any).image_url) {
+      await prisma.product.update({ where: { id: (exists as any).id }, data: { image_url: (p as any).image_url } });
+    }
   }
 
   await prisma.setting.upsert({ where: { key: "opening_balance" }, update: {}, create: { key: "opening_balance", value: "5000000" } });
