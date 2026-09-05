@@ -2,7 +2,6 @@
 import { useState, useMemo } from "react";
 import { useCart } from "@/hooks/useCart";
 import { formatRupiah } from "@/lib/utils";
-import { getProductImage, getFallbackPicsum } from "@/lib/placeholder";
 
 type Cat = { id: string; name: string };
 type Prod = { id: string; name: string; selling_price: number; cost_price: number; category_id: string; category: Cat; image_url?: string | null };
@@ -73,19 +72,11 @@ export default function POSClient({ categories, products }: { categories: Cat[];
       <div className="products">
         {filtered.map(p=> (
           <div key={p.id} className="product">
-            <div className="prod-img">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={getProductImage(p)}
-                alt={p.name}
-                loading="lazy"
-                onError={(e)=>{ const t=e.currentTarget; if(!t.dataset.fallback){ t.dataset.fallback="1"; t.src=getFallbackPicsum(p.id); } }}
-              />
-            </div>
             <div className="prod-info">
+              <div className="muted" style={{ fontSize:11, fontWeight:700, letterSpacing:".04em" }}>{p.category.name}</div>
               <div className="prod-name">{p.name}</div>
-              <div className="price">{formatRupiah(p.selling_price)}</div>
-              <button className="btn primary" style={{ marginTop:8, minHeight:36, padding:"6px 10px", fontSize:13, width:"100%" }} onClick={()=>cart.add({product_id:p.id,product_name:p.name,selling_price:p.selling_price,cost_price:p.cost_price,image_url:p.image_url})}>＋ Tambah</button>
+              <div className="price" style={{ marginTop:4 }}>{formatRupiah(p.selling_price)}</div>
+              <button className="btn primary" style={{ marginTop:10, minHeight:36, padding:"6px 10px", fontSize:13, width:"100%" }} onClick={()=>cart.add({product_id:p.id,product_name:p.name,selling_price:p.selling_price,cost_price:p.cost_price,image_url:p.image_url})}>＋ Tambah</button>
             </div>
           </div>
         ))}
