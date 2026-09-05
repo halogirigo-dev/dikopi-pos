@@ -37,7 +37,7 @@ export default function TransactionsClient({ transactions, isAdmin, activeLabel,
   return (
     <div>
       {/* Filter hari ini / bulan ini / pilih tanggal & bulan */}
-      <div className="card" style={{ padding:12, marginBottom:12 }}>
+      <div data-onboarding="trx-filter" className="card" style={{ padding:12, marginBottom:12 }}>
         <div style={{ display:"flex", gap:8, overflowX:"auto", paddingBottom:4 }} className="scrollbar-none">
           <button className={`cat ${isAll?"active":""}`} style={{ minHeight:36 }} onClick={()=>push({ period:"all" })}>Semua</button>
           <button className={`cat ${isToday?"active":""}`} style={{ minHeight:36 }} onClick={()=>push({ period:"today" })}>Hari ini</button>
@@ -82,7 +82,7 @@ export default function TransactionsClient({ transactions, isAdmin, activeLabel,
         <div className="muted" style={{ fontSize:12, marginTop:10, textAlign:"center" }}>Menampilkan: <b style={{ color:"var(--text)" }}>{activeLabel}</b> • {filtered.length} transaksi</div>
       </div>
 
-      <input className="input" placeholder="Search invoice..." value={filter} onChange={e=>setFilter(e.target.value)} />
+      <input data-onboarding="trx-search" className="input" placeholder="Search invoice..." value={filter} onChange={e=>setFilter(e.target.value)} />
 
       {pagination && pagination.totalPages > 1 && (
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:12, gap:8 }}>
@@ -94,7 +94,7 @@ export default function TransactionsClient({ transactions, isAdmin, activeLabel,
         </div>
       )}
 
-      <div style={{ display:"grid", gap:12, marginTop:12 }}>
+      <div data-onboarding="trx-list" style={{ display:"grid", gap:12, marginTop:12 }}>
         {filtered.map(t=> (
           <button key={t.id} className="card" style={{ padding:16, textAlign:"left", width:"100%" }} onClick={()=>setDetail(t)}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>

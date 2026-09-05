@@ -6,7 +6,7 @@ export default function FinanceTabs({ tab, period }: { tab:string; period:string
   function goPeriod(v:string){ const p=new URLSearchParams(sp.toString()); p.set("period",v); router.push(`/finance?${p.toString()}`); }
   return (
     <div style={{ marginBottom:16, display:"grid", gap:12 }}>
-      <div className="segment">
+      <div data-onboarding="finance-tabs" className="segment">
         {[
           { id:"overview", label:"Overview" },
           { id:"cashflow", label:"Cashflow" },

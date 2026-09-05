@@ -28,7 +28,7 @@ export default async function FinanceData({ tab, period }: { tab: string; period
   }
   if (tab === "cashflow") {
     return (
-      <div style={{ display: "grid", gap: 12 }}>
+      <div data-onboarding="finance-cashflow" style={{ display: "grid", gap: 12 }}>
         <div className="card" style={{ padding: 16 }}><div style={{ fontWeight: 700, marginBottom: 8 }}>Money In</div><div style={{ fontSize: 20, fontWeight: 800, color: "var(--green)" }}>{formatRupiah(kpi.cashInflow)}</div><div className="muted" style={{ marginTop: 8 }}>Sales + other in</div></div>
         <div className="card" style={{ padding: 16 }}><div style={{ fontWeight: 700, marginBottom: 8 }}>Money Out</div><div style={{ fontSize: 20, fontWeight: 800, color: "var(--red)" }}>{formatRupiah(kpi.cashOutflow)}</div><div className="muted" style={{ marginTop: 8 }}>Expenses + other out</div></div>
         <div className="card" style={{ padding: 16, background: "var(--primary)", color: "#fff" }}><div style={{ opacity: .7, fontSize: 11, letterSpacing: ".08em", fontWeight: 700 }}>NET CASHFLOW</div><div style={{ fontSize: 24, fontWeight: 800, marginTop: 6 }}>{formatRupiah(kpi.netCashflow)}</div><div style={{ opacity: .7, fontSize: 12, marginTop: 4 }}>Closing {formatRupiah(kpi.cashPosition)}</div></div>

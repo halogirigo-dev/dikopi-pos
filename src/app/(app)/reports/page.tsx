@@ -1,6 +1,8 @@
 import { getSalesReport, getProductPerformance, getFinancialKPI } from "@/lib/finance";
 import { getDateRange, formatRupiah, formatRupiahShort } from "@/lib/utils";
 import ReportsClient from "./ReportsClient";
+import { FeatureTourClient } from "@/components/onboarding/FeatureTourClient";
+import { REPORTS_TOUR } from "@/components/onboarding/data";
 
 export default async function ReportsPage({ searchParams }: { searchParams: { period?: string; view?: string }}) {
   const period = searchParams.period || "thisMonth";
@@ -21,7 +23,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: { pe
     return (
       <div>
         <div className="filters" style={{ justifyContent:"space-between" }}><h1 style={{ fontSize:18, fontWeight:700, margin:0 }}>Product Performance</h1><ReportsClient period={period} /></div>
-        <div className="muted" style={{ fontSize:12, marginBottom:12 }}>{totalRev? `${products.length} produk • Total ${formatRupiah(totalRev)} • Gross ${formatRupiah(totalGross)}` : "Belum ada penjualan di periode ini"}</div>
+        <div data-onboarding="reports-performance" className="muted" style={{ fontSize:12, marginBottom:12 }}>{totalRev? `${products.length} produk • Total ${formatRupiah(totalRev)} • Gross ${formatRupiah(totalGross)}` : "Belum ada penjualan di periode ini"}</div>
 
         {/* Summary KPI visual */}
         {products.length>0 && (
@@ -137,7 +139,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: { pe
           </div>
         </div>
 
-        {/* Detail cards + desktop table */}
+          {/* Detail cards + desktop table */}
         <style>{`@media(min-width:901px){ .mobile-pp{display:none} } @media(max-width:900px){ .desktop-pp{display:none} }`}</style>
         <div className="mobile-pp" style={{ display:"grid", gap:10 }}>
           {products.map(p=> (
@@ -165,6 +167,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: { pe
             {!products.length && <tr><td colSpan={6} style={{ textAlign:"center", padding:20 }} className="muted">Belum ada data</td></tr>}
           </tbody></table>
         </div>
+        <FeatureTourClient tour={REPORTS_TOUR} />
       </div>
     );
   }
@@ -172,7 +175,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: { pe
   return (
     <div>
       <div className="filters"><h1 style={{ fontSize:18, fontWeight:700, margin:0 }}>Profit & Loss</h1><ReportsClient period={period} /></div>
-      <div className="report-grid">
+      <div data-onboarding="reports-pnl" className="report-grid">
         <div className="card statement">
           <div className="card-title">Profit & Loss</div>
           <div className="section-label">Revenue</div>
@@ -201,6 +204,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: { pe
         </div>
       </div>
       <div style={{ marginTop:16, textAlign:"center" }}><a href="/reports?view=products" className="btn">Lihat Product Performance →</a></div>
+      <FeatureTourClient tour={REPORTS_TOUR} />
     </div>
   );
 }

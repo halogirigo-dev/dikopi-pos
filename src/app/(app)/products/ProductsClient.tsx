@@ -1,6 +1,10 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { formatRupiah, calcMargin } from "@/lib/utils";
+import { useOnboarding } from "@/components/onboarding/OnboardingContext";
+import { OnboardingTour } from "@/components/onboarding/Tour";
+import { PRODUCTS_TOUR } from "@/components/onboarding/data";
+import { EmptyStateGuide } from "@/components/onboarding/EmptyState";
 
 type Product = any;
 type Category = { id: string; name: string };
@@ -13,6 +17,13 @@ export default function ProductsClient({ categories, products: initial }: { cate
   const [showCalc, setShowCalc] = useState(false);
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
+  const { state: obState, isCompleted, markCompleted } = useOnboarding();
+  const [showTour, setShowTour] = useState(false);
+  useEffect(() => {
+    if (!obState.tipsEnabled || isCompleted("products") || !obState.welcome) return;
+    const t = setTimeout(() => setShowTour(true), 900);
+    return () => clearTimeout(t);
+  }, [obState.tipsEnabled, obState.welcome, isCompleted]);
 
   const filtered = initial.filter(p=> !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.category.name.toLowerCase().includes(search.toLowerCase()));
 
@@ -35,7 +46,9 @@ export default function ProductsClient({ categories, products: initial }: { cate
 
   return (
     <div>
-      <div className="filters"><button className="btn accent" onClick={openCreate}>＋ Add Product</button><input className="input" placeholder="Search product..." value={search} onChange={e=>setSearch(e.target.value)} /></div>
+      <div className="filters"><button data-onboarding="products-add" className="btn accent" onClick={openCreate}>＋ Add Product</button><input className="input" placeholder="Search product..." value={search} onChange={e=>setSearch(e.target.value)} /></div>
+      {/* micro hint */}
+      <div className="muted" style={{ fontSize:12, marginBottom:10 }}>💡 Harga jual = omzet, HPP = biaya bikin. Selisihnya = laba kotor.</div>
       {/* Mobile cards spec 14 */}
       <div style={{ display:"grid", gap:12 }} className="mobile-product-cards">
         <style>{`@media(min-width:901px){ .mobile-product-cards{display:none} } @media(max-width:900px){ .desktop-table{display:none} }`}</style>
@@ -47,16 +60,16 @@ export default function ProductsClient({ categories, products: initial }: { cate
                 <div><div style={{ fontWeight:700, fontSize:14 }}>{p.name}</div><div className="muted" style={{ fontSize:12 }}>{p.category.name} • {p.is_available?"Aktif":"Hidden"}</div></div>
                 <span className="badge" style={{ background: m>=50?"var(--green-soft)": m>=30?"var(--warning-soft)":"var(--red-soft)", color: m>=50?"var(--green)": m>=30?"var(--warning)":"var(--red)" }}>{m.toFixed(1)}%</span>
               </div>
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginTop:12, background:"var(--surface2)", borderRadius:12, padding:12 }}>
+              <div data-onboarding={filtered.indexOf(p)===0 ? "products-margin" : undefined} style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginTop:12, background:"var(--surface2)", borderRadius:12, padding:12 }}>
                 <div><div className="muted" style={{ fontSize:11 }}>Selling Price</div><div style={{ fontWeight:700 }}>{formatRupiah(p.selling_price)}</div></div>
-                <div><div className="muted" style={{ fontSize:11 }}>HPP</div><div style={{ fontWeight:700 }}>{formatRupiah(p.cost_price)}</div></div>
+                <div data-onboarding={filtered.indexOf(p)===0 ? "products-hpp" : undefined}><div className="muted" style={{ fontSize:11 }}>HPP</div><div style={{ fontWeight:700 }}>{formatRupiah(p.cost_price)}</div></div>
               </div>
               <div className="muted" style={{ fontSize:12, marginTop:8 }}>Margin {m.toFixed(1)}% • Gross {formatRupiah(p.selling_price - p.cost_price)}</div>
               <button className="btn" style={{ width:"100%", marginTop:12 }} onClick={()=>openEdit(p)}>Edit</button>
             </div>
           );
         })}
-        {!filtered.length && <div className="card" style={{ padding:20, textAlign:"center" }}><span className="muted">Tidak ada produk</span></div>}
+        {!filtered.length && <EmptyStateGuide icon="☕" title="Belum ada produk" description="Tambahkan menu cafe kamu agar bisa mulai transaksi di POS. Produk butuh harga jual & HPP untuk hitung laba." actionLabel="＋ Tambah Produk" onAction={openCreate} hint="Contoh: Es Kopi Susu — Harga 18.000, HPP 6.000 → laba 12.000" />}
       </div>
       <div className="card desktop-table">
         <table className="table">
@@ -82,38 +95,61 @@ export default function ProductsClient({ categories, products: initial }: { cate
       </div>
 
       {showForm && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.4)", display:"grid", placeItems:"center", zIndex:50, padding:16 }} onClick={()=>setShowForm(false)}>
-          <div className="card" style={{ padding:20, width:500, maxHeight:"90vh", overflowY:"auto" }} onClick={e=>e.stopPropagation()}>
-            <h3 style={{ margin:"0 0 14px" }}>{editing?"Edit Produk":"Tambah Produk"}</h3>
-            <div className="formgrid">
-              <div className="field full"><label>Nama *</label><input className="input" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Es Kopi Susu" /></div>
-              <div className="field"><label>Kategori *</label><select className="input" value={form.category_id} onChange={e=>setForm({...form,category_id:e.target.value})}><option value="">Pilih</option>{categories.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-              <div className="field"><label>Status</label><select className="input" value={String(form.is_available)} onChange={e=>setForm({...form,is_available:e.target.value==="true"})}><option value="true">Tersedia</option><option value="false">Hidden</option></select></div>
-              <div className="field"><label>Harga Jual *</label><input className="input" type="number" value={form.selling_price} onChange={e=>setForm({...form,selling_price:e.target.value})} /></div>
-              <div className="field"><label>HPP *</label><input className="input" type="number" value={form.cost_price} onChange={e=>setForm({...form,cost_price:e.target.value})} /></div>
-              <div className="field full"><label>Image URL</label><input className="input" value={form.image_url} onChange={e=>setForm({...form,image_url:e.target.value})} placeholder="https://..." /></div>
-              <div className="field full">
-                <button className="btn" style={{ width:"100%" }} onClick={()=>setShowCalc(!showCalc)}>🧮 Hitung HPP {showCalc?"−":"+"}</button>
+        <div
+          style={{
+            position:"fixed", inset:0, background:"rgba(0,0,0,.45)", zIndex:50,
+            display:"flex", alignItems:"flex-start", justifyContent:"center",
+            padding:"16px", paddingTop:"max(16px, env(safe-area-inset-top))",
+            paddingBottom:"max(16px, env(safe-area-inset-bottom))",
+            overflowY:"auto"
+          }}
+          onClick={()=>setShowForm(false)}
+        >
+          <div
+            className="card"
+            style={{
+              width:"100%", maxWidth:520, margin:"auto",
+              maxHeight:"min(92vh, 720px)", overflowY:"auto",
+              borderRadius:16, padding:20,
+              display:"flex", flexDirection:"column"
+            }}
+            onClick={e=>e.stopPropagation()}
+          >
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14, gap:12 }}>
+              <h3 style={{ margin:0, fontSize:16, fontWeight:800 }}>{editing?"Edit Produk":"Tambah Produk"}</h3>
+              <button className="btn" style={{ minHeight:36, padding:"6px 10px" }} onClick={()=>setShowForm(false)}>✕</button>
+            </div>
+            <div className="formgrid" style={{ gap:12 }}>
+              <div className="field full"><label>Nama *</label><input className="input" style={{ minWidth:0 }} value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Es Kopi Susu" /></div>
+              <div className="field" style={{ minWidth:0 }}><label>Kategori *</label><select className="input" style={{ minWidth:0 }} value={form.category_id} onChange={e=>setForm({...form,category_id:e.target.value})}><option value="">Pilih</option>{categories.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+              <div className="field" style={{ minWidth:0 }}><label>Status</label><select className="input" style={{ minWidth:0 }} value={String(form.is_available)} onChange={e=>setForm({...form,is_available:e.target.value==="true"})}><option value="true">Tersedia</option><option value="false">Hidden</option></select></div>
+              <div className="field" style={{ minWidth:0 }}><label>Harga Jual *</label><input className="input" style={{ minWidth:0 }} type="number" inputMode="numeric" value={form.selling_price} onChange={e=>setForm({...form,selling_price:e.target.value})} placeholder="18000" /></div>
+              <div className="field" style={{ minWidth:0 }}><label>HPP *</label><input data-onboarding="products-hpp-input" className="input" style={{ minWidth:0 }} type="number" inputMode="numeric" value={form.cost_price} onChange={e=>setForm({...form,cost_price:e.target.value})} placeholder="6000" /></div>
+              <div className="field full" style={{ minWidth:0 }}><label>Image URL <span className="muted" style={{ fontWeight:400 }}>(opsional)</span></label><input className="input" style={{ minWidth:0 }} value={form.image_url} onChange={e=>setForm({...form,image_url:e.target.value})} placeholder="https://..." /></div>
+              <div className="field full" style={{ minWidth:0 }}>
+                <button data-onboarding="products-calc" className="btn" style={{ width:"100%", minHeight:44 }} onClick={()=>setShowCalc(!showCalc)}>🧮 Hitung HPP {showCalc?"−":"+"}</button>
                 {showCalc && (
-                  <div style={{ background:"var(--surface2)", border:"1px solid var(--border)", borderRadius:8, padding:10, marginTop:8 }}>
+                  <div style={{ background:"var(--surface2)", border:"1px solid var(--border)", borderRadius:12, padding:12, marginTop:8 }}>
+                    <div className="muted" style={{ fontSize:11, marginBottom:8 }}>Bahan + cup + operasional = HPP</div>
                     {breakdown.map((b,i)=>(
-                      <div key={i} style={{ display:"flex", gap:6, marginBottom:6 }}>
-                        <input className="input" style={{ flex:1 }} placeholder="Komponen" value={b.name} onChange={e=>{ const nb=[...breakdown]; nb[i].name=e.target.value; setBreakdown(nb); }} />
-                        <input className="input" style={{ width:100 }} type="number" placeholder="Biaya" value={b.cost} onChange={e=>{ const nb=[...breakdown]; nb[i].cost=e.target.value; setBreakdown(nb); }} />
-                        <button className="btn" onClick={()=>setBreakdown(breakdown.filter((_,j)=>j!==i))}>×</button>
+                      <div key={i} style={{ display:"flex", gap:8, marginBottom:8, alignItems:"center" }}>
+                        <input className="input" style={{ flex:"1 1 0", minWidth:0 }} placeholder="Komponen (mis. susu)" value={b.name} onChange={e=>{ const nb=[...breakdown]; nb[i].name=e.target.value; setBreakdown(nb); }} />
+                        <input className="input" style={{ width:110, flex:"0 0 110px", minWidth:0 }} type="number" inputMode="numeric" placeholder="Biaya" value={b.cost} onChange={e=>{ const nb=[...breakdown]; nb[i].cost=e.target.value; setBreakdown(nb); }} />
+                        <button className="btn" style={{ width:44, height:44, flex:"0 0 44px", padding:0 }} onClick={()=>setBreakdown(breakdown.filter((_,j)=>j!==i))}>×</button>
                       </div>
                     ))}
-                    <button className="btn" onClick={()=>setBreakdown([...breakdown,{name:"",cost:""}])}>+ Komponen</button>
-                    {breakdown.length>0 && <div style={{ marginTop:8, display:"flex", justifyContent:"space-between" }}><span>Total {formatRupiah(breakdown.reduce((s,b)=>s+(Number(b.cost)||0),0))}</span><button className="btn accent" onClick={()=>setForm({...form,cost_price:String(breakdown.reduce((s,b)=>s+(Number(b.cost)||0),0))})}>Pakai</button></div>}
+                    <button className="btn" style={{ width:"100%", minHeight:40 }} onClick={()=>setBreakdown([...breakdown,{name:"",cost:""}])}>＋ Komponen</button>
+                    {breakdown.length>0 && <div style={{ marginTop:10, display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, flexWrap:"wrap" }}><span style={{ fontWeight:700, fontSize:13 }}>Total {formatRupiah(breakdown.reduce((s,b)=>s+(Number(b.cost)||0),0))}</span><button className="btn accent" style={{ minHeight:40 }} onClick={()=>setForm({...form,cost_price:String(breakdown.reduce((s,b)=>s+(Number(b.cost)||0),0))})}>Pakai total → HPP</button></div>}
                   </div>
                 )}
               </div>
-              {error && <div className="full" style={{ background:"var(--red-soft)", color:"var(--red)", border:"1px solid #f5c6c6", borderRadius:8, padding:8, fontSize:12 }}>{error}</div>}
-              <div className="full" style={{ display:"flex", gap:8 }}><button className="btn accent" style={{ flex:1 }} onClick={submit}>{editing?"Simpan":"Tambah"}</button><button className="btn" onClick={()=>setShowForm(false)}>Batal</button></div>
+              {error && <div className="full" style={{ background:"var(--red-soft)", color:"var(--red)", border:"1px solid #f5c6c6", borderRadius:10, padding:"10px 12px", fontSize:12, lineHeight:"16px" }}>{error}</div>}
+              <div className="full" style={{ display:"flex", gap:8, marginTop:4 }}><button className="btn accent" style={{ flex:1, minHeight:48 }} onClick={submit}>{editing?"Simpan":"Tambah"}</button><button className="btn" style={{ flex:1, minHeight:48 }} onClick={()=>setShowForm(false)}>Batal</button></div>
             </div>
           </div>
         </div>
       )}
+      {showTour && <OnboardingTour tour={PRODUCTS_TOUR} onComplete={()=>{ markCompleted("products"); setShowTour(false); }} onSkip={()=>{ markCompleted("products"); setShowTour(false); }} />}
     </div>
   );
 }

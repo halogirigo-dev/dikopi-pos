@@ -1,5 +1,7 @@
 import { getFinancialKPI } from "@/lib/finance";
 import { getDateRange, formatRupiah } from "@/lib/utils";
+import { FeatureTourClient } from "@/components/onboarding/FeatureTourClient";
+import { CASHFLOW_TOUR } from "@/components/onboarding/data";
 
 export default async function CashflowPage({ searchParams }: { searchParams: { period?: string }}) {
   const period = searchParams.period || "thisMonth";
@@ -7,7 +9,7 @@ export default async function CashflowPage({ searchParams }: { searchParams: { p
   const kpi = await getFinancialKPI(from,to);
   return (
     <div>
-      <div className="grid6">
+      <div data-onboarding="cashflow-opening" className="grid6">
         <div className="card kpi"><div className="kpi-label">Opening Balance</div><div className="kpi-value">{formatRupiah(kpi.openingBalance)}</div></div>
         <div className="card kpi"><div className="kpi-label">Cash In</div><div className="kpi-value positive">{formatRupiah(kpi.cashInflow)}</div></div>
         <div className="card kpi"><div className="kpi-label">Cash Out</div><div className="kpi-value negative">{formatRupiah(kpi.cashOutflow)}</div></div>
@@ -27,6 +29,7 @@ export default async function CashflowPage({ searchParams }: { searchParams: { p
         <div className="card kpi"><div className="kpi-label">HPP</div><div className="kpi-value">{formatRupiah(kpi.hpp)}</div></div>
         <div className="card kpi"><div className="kpi-label">Net Profit</div><div className="kpi-value positive">{formatRupiah(kpi.netProfit)}</div></div>
       </div>
+      <FeatureTourClient tour={CASHFLOW_TOUR} />
     </div>
   );
 }

@@ -1,13 +1,24 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { formatRupiah } from "@/lib/utils";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useOnboarding } from "@/components/onboarding/OnboardingContext";
+import { OnboardingTour } from "@/components/onboarding/Tour";
+import { EXPENSES_TOUR } from "@/components/onboarding/data";
+import { EmptyStateGuide } from "@/components/onboarding/EmptyState";
 
 export default function ExpensesClient({ categories, expenses, activeLabel, initialParams }: { categories:any[]; expenses:any[]; activeLabel:string; initialParams:any }) {
   const router = useRouter();
   const sp = useSearchParams();
   const [show, setShow]=useState(false);
   const [form,setForm]=useState({category_id:categories[0]?.id||"",description:"",amount:"",payment_method:"CASH",expense_date:new Date().toISOString().slice(0,10),notes:""});
+  const { state: obState, isCompleted, markCompleted } = useOnboarding();
+  const [showTour, setShowTour] = useState(false);
+  useEffect(() => {
+    if (!obState.tipsEnabled || isCompleted("expenses") || !obState.welcome) return;
+    const t = setTimeout(() => setShowTour(true), 900);
+    return () => clearTimeout(t);
+  }, [obState.tipsEnabled, obState.welcome, isCompleted]);
 
   async function submit(){
     const res=await fetch("/api/expenses",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...form,amount:Number(form.amount)})});
@@ -41,7 +52,7 @@ export default function ExpensesClient({ categories, expenses, activeLabel, init
   return (
     <div>
       {/* Filters: hari ini / bulan ini / tanggal & bulan + kategori */}
-      <div className="card" style={{ padding:12, marginBottom:12 }}>
+      <div data-onboarding="expenses-filter" className="card" style={{ padding:12, marginBottom:12 }}>
         <div style={{ display:"flex", gap:8, overflowX:"auto", paddingBottom:4 }} className="scrollbar-none">
           <button className={`cat ${isAll?"active":""}`} style={{ minHeight:36 }} onClick={()=>push({ period:"all" })}>Semua</button>
           <button className={`cat ${period==="today"?"active":""}`} style={{ minHeight:36 }} onClick={()=>push({ period:"today" })}>Hari ini</button>
@@ -93,12 +104,13 @@ export default function ExpensesClient({ categories, expenses, activeLabel, init
       </div>
 
       <div style={{ display:"flex", gap:8, marginBottom:12 }}>
-        <button className="btn accent" style={{ flex:1, minHeight:48 }} onClick={()=>setShow(true)}>＋ Tambah Pengeluaran</button>
+        <button data-onboarding="expenses-add" className="btn accent" style={{ flex:1, minHeight:48 }} onClick={()=>setShow(true)}>＋ Tambah Pengeluaran</button>
       </div>
+      <div className="muted" style={{ fontSize:11, margin:"0 0 12px", textAlign:"center" }}>💡 Pengeluaran = biaya operasional. Dicatat di sini agar laba bersih akurat.</div>
 
       {/* Per-kategori per-bulan summary */}
       {perCatEntries.length>0 && (
-        <div className="card" style={{ padding:12, marginBottom:12 }}>
+        <div data-onboarding="expenses-summary" className="card" style={{ padding:12, marginBottom:12 }}>
           <div style={{ fontWeight:700, fontSize:13, marginBottom:8 }}>Ringkasan per kategori • {activeLabel}</div>
           <div style={{ display:"grid", gap:8 }}>
             {perCatEntries.map(([name, amt])=>(
@@ -125,7 +137,7 @@ export default function ExpensesClient({ categories, expenses, activeLabel, init
               {e.notes && <div className="muted" style={{ fontSize:12, marginTop:6 }}>{e.notes}</div>}
             </div>
           ))}
-          {!expenses.length && <div className="card" style={{ padding:20, textAlign:"center" }}><span className="muted">Tidak ada pengeluaran untuk filter ini</span><div style={{ marginTop:8 }}><button className="btn" onClick={()=>push({ period:"all" })}>Lihat semua</button></div></div>}
+          {!expenses.length && <EmptyStateGuide icon="💸" title="Belum ada pengeluaran" description="Catat biaya operasional seperti sewa, listrik, gaji, bahan untuk hitung laba bersih yang akurat." actionLabel="＋ Tambah Pengeluaran" onAction={()=>setShow(true)} hint="Tanpa pengeluaran, laporan laba akan terlihat terlalu besar." />}
         </div>
       </div>
 
@@ -158,6 +170,7 @@ export default function ExpensesClient({ categories, expenses, activeLabel, init
           </div>
         </div>
       )}
+      {showTour && <OnboardingTour tour={EXPENSES_TOUR} onComplete={()=>{ markCompleted("expenses"); setShowTour(false); }} onSkip={()=>{ markCompleted("expenses"); setShowTour(false); }} />}
     </div>
   );
 }

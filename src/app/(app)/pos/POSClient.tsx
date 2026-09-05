@@ -1,7 +1,10 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useCart } from "@/hooks/useCart";
 import { formatRupiah } from "@/lib/utils";
+import { useOnboarding } from "@/components/onboarding/OnboardingContext";
+import { OnboardingTour } from "@/components/onboarding/Tour";
+import { POS_TOUR } from "@/components/onboarding/data";
 
 type Cat = { id: string; name: string };
 type Prod = { id: string; name: string; selling_price: number; cost_price: number; category_id: string; category: Cat; image_url?: string | null };
@@ -16,6 +19,16 @@ export default function POSClient({ categories, products }: { categories: Cat[];
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState<any>(null);
   const cart = useCart();
+  const { state: obState, isCompleted, markCompleted } = useOnboarding();
+  const [showPosTour, setShowPosTour] = useState(false);
+  useEffect(() => {
+    if (!obState.tipsEnabled || isCompleted("pos") || !obState.welcome || !obState.nav) return;
+    if (cart.items.length > 0) return;
+    if (products.length === 0) return;
+    const t = setTimeout(() => setShowPosTour(true), 900);
+    return () => clearTimeout(t);
+  }, [obState.tipsEnabled, obState.welcome, obState.nav, isCompleted, cart.items.length, products.length]);
+
 
   // Instant client-side filtering: category + search never hits DB
   // Memoized to avoid re-filter on every render (cart changes, etc.)
@@ -60,18 +73,18 @@ export default function POSClient({ categories, products }: { categories: Cat[];
         <span className="muted" style={{ marginLeft:"auto", fontSize:12 }}>{filtered.length} produk</span>
       </div>
 
-      <input className="input" placeholder="Search product..." value={search} onChange={e=>setSearch(e.target.value)} style={{ marginBottom:12 }} />
+      <input data-onboarding="pos-search" className="input" placeholder="Search product..." value={search} onChange={e=>setSearch(e.target.value)} style={{ marginBottom:12 }} />
 
-      <div className="catbar">
+      <div data-onboarding="pos-categories" className="catbar">
         <button className={`cat ${activeCat==="All"?"active":""}`} onClick={()=>setActiveCat("All")}>All</button>
         {categories.map(c=> (
           <button key={c.id} className={`cat ${activeCat===c.name?"active":""}`} onClick={()=>setActiveCat(c.name)}>{c.name}</button>
         ))}
       </div>
 
-      <div className="products">
-        {filtered.map(p=> (
-          <div key={p.id} className="product">
+      <div className="products" data-onboarding="pos-products">
+        {filtered.map((p,i)=> (
+          <div key={p.id} className="product" {...(i===0?{"data-onboarding":"pos-product"}:{})}>
             <div className="prod-info">
               <div className="muted" style={{ fontSize:11, fontWeight:700, letterSpacing:".04em" }}>{p.category.name}</div>
               <div className="prod-name">{p.name}</div>
@@ -83,9 +96,18 @@ export default function POSClient({ categories, products }: { categories: Cat[];
       </div>
       {filtered.length===0 && <div className="card" style={{ padding:20, textAlign:"center", marginTop:12 }}><span className="muted">Tidak ada produk</span></div>}
 
+      {/* Hint for onboarding when cart empty */}
+      {cart.items.length===0 && (
+        <div data-onboarding="pos-cart" style={{ marginTop:12, border:"1px dashed var(--border)", borderRadius:12, padding:12, textAlign:"center", background:"var(--surface)" }}>
+          <div style={{ fontSize:13, fontWeight:600 }}>🛒 Keranjang kosong</div>
+          <div className="muted" style={{ fontSize:11, marginTop:2 }}>Tambah produk untuk melihat total di sini</div>
+        </div>
+      )}
+      <div data-onboarding="pos-pay" style={{ height:1 }} />
+
       {/* Sticky bottom cart summary */}
       {cart.items.length>0 && (
-        <div style={{ position:"fixed", bottom:72, left:0, right:0, padding:"0 16px", zIndex:30 }}>
+        <div data-onboarding="pos-cart" style={{ position:"fixed", bottom:72, left:0, right:0, padding:"0 16px", zIndex:30 }}>
           <div className="card" style={{ padding:12, display:"flex", justifyContent:"space-between", alignItems:"center", gap:12 }}>
             <div><div style={{ fontWeight:700, fontSize:14 }}>{count} items</div><div style={{ fontWeight:800, fontSize:16 }}>{formatRupiah(total)}</div></div>
             <button className="btn primary" style={{ minHeight:48, padding:"12px 20px" }} onClick={()=>setShowCart(true)}>Lihat Keranjang</button>
@@ -180,6 +202,9 @@ export default function POSClient({ categories, products }: { categories: Cat[];
             <button className="btn primary" style={{ width:"100%", marginTop:20, minHeight:48 }} onClick={()=>setSuccess(null)}>Selesai</button>
           </div>
         </div>
+      )}
+      {showPosTour && (
+        <OnboardingTour tour={POS_TOUR} onComplete={()=>{ markCompleted("pos"); setShowPosTour(false); }} onSkip={()=>{ markCompleted("pos"); setShowPosTour(false); }} />
       )}
     </div>
   );

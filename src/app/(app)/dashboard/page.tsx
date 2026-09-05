@@ -5,6 +5,8 @@ import DashboardClient from "./DashboardClient";
 import { Suspense } from "react";
 import DashboardData from "./DashboardData";
 import RealtimeRefresher from "@/components/RealtimeRefresher";
+import { FeatureTourClient } from "@/components/onboarding/FeatureTourClient";
+import { DASHBOARD_TOUR } from "@/components/onboarding/data";
 
 export default async function DashboardPage({ searchParams }: { searchParams: { period?: string }}) {
   const session: any = await getServerSession(authOptions);
@@ -29,6 +31,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
       <Suspense fallback={<DashboardSkeleton />}>
         <DashboardData period={period} />
       </Suspense>
+      <FeatureTourClient tour={DASHBOARD_TOUR} />
     </div>
   );
 }

@@ -21,20 +21,22 @@ export default function BottomNav({ role }: { role: string }) {
       ]
     : items;
 
+  const mobMap: Record<string,string> = { "/dashboard":"nav-dashboard", "/pos":"nav-pos", "/transactions":"nav-transactions", "/finance":"nav-finance", "/more":"nav-products" };
   return (
     <nav className="bottom-nav">
       {navItems.map((it) => {
         const active = path === it.href || path.startsWith(it.href + "/") || (it.href === "/finance" && path.startsWith("/finance"));
+        const attr = mobMap[it.href] || "nav-finance";
         if ((it as any).cta) {
           return (
-            <Link key={it.href} href={it.href} prefetch className={`pos-cta ${active ? "active" : ""}`} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minWidth: 64 }}>
+            <Link key={it.href} href={it.href} prefetch data-onboarding={attr} className={`pos-cta ${active ? "active" : ""}`} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minWidth: 64 }}>
               <span className="ico" style={{ fontSize: 20 }}>{it.ico}</span>
               <span style={{ fontSize: 10, fontWeight: 700 }}>{it.label}</span>
             </Link>
           );
         }
         return (
-          <Link key={it.href} href={it.href} prefetch className={active ? "active" : ""}>
+          <Link key={it.href} href={it.href} prefetch data-onboarding={attr} className={active ? "active" : ""}>
             <span className="ico">{it.ico}</span>
             <span>{it.label}</span>
           </Link>

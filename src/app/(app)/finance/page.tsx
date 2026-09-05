@@ -6,6 +6,8 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import FinanceData from "./FinanceData";
 import RealtimeRefresher from "@/components/RealtimeRefresher";
+import { FeatureTourClient } from "@/components/onboarding/FeatureTourClient";
+import { FINANCE_TOUR } from "@/components/onboarding/data";
 
 export default async function FinancePage({ searchParams }: { searchParams: { tab?: string; period?: string }}) {
   const session: any = await getServerSession(authOptions);
@@ -21,6 +23,7 @@ export default async function FinancePage({ searchParams }: { searchParams: { ta
       <Suspense fallback={<FinanceSkeleton />}>
         <FinanceData tab={tab} period={period} />
       </Suspense>
+      <FeatureTourClient tour={FINANCE_TOUR} />
     </div>
   );
 }

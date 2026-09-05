@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth";
 import TransactionsClient from "./TransactionsClient";
 import { getDateRange } from "@/lib/utils";
 import RealtimeRefresher from "@/components/RealtimeRefresher";
+import { FeatureTourClient } from "@/components/onboarding/FeatureTourClient";
+import { TRANSACTIONS_TOUR } from "@/components/onboarding/data";
 
 export default async function TransactionsPage({ searchParams }: { searchParams: { period?: string; date?: string; month?: string; from?: string; to?: string; page?: string; limit?: string } }) {
   const session: any = await getServerSession(authOptions);
@@ -61,6 +63,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
     <>
       <RealtimeRefresher tables={["Transaction", "TransactionItem"]} intervalMs={8000} />
       <TransactionsClient transactions={txs} isAdmin={session.user.role==="ADMIN"} activeLabel={activeLabel} initialParams={searchParams} pagination={pagination as any} />
+      <FeatureTourClient tour={TRANSACTIONS_TOUR} />
     </>
   );
 }
