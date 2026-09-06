@@ -30,6 +30,15 @@ enum AdjustmentType {
   CORRECTION
 }
 
+enum StockMovementType {
+  PURCHASE
+  SALE_CONSUMPTION
+  ADJUSTMENT
+  WASTE
+  RETURN
+  OPENING
+}
+
 model User {
   id              String           @id @default(cuid())
   name            String
@@ -42,6 +51,7 @@ model User {
   transactions    Transaction[]
   expenses        Expense[]
   cashAdjustments CashAdjustment[]
+  stockMovements  StockMovement[]
 }
 
 model Category {
@@ -53,21 +63,78 @@ model Category {
 }
 
 model Product {
-  id            String   @id @default(cuid())
+  id            String       @id @default(cuid())
   category_id   String
-  category      Category @relation(fields: [category_id], references: [id])
+  category      Category     @relation(fields: [category_id], references: [id])
   name          String
   selling_price Int
   cost_price    Int
   hpp_breakdown Json?
   image_url     String?
-  is_available  Boolean  @default(true)
-  created_at    DateTime @default(now())
-  updated_at    DateTime @updatedAt
+  is_available  Boolean      @default(true)
+  created_at    DateTime     @default(now())
+  updated_at    DateTime     @updatedAt
+  recipeItems   RecipeItem[]
 
   @@index([category_id])
   @@index([is_available])
   @@index([category_id, is_available])
+}
+
+model InventoryItem {
+  id            String          @id @default(cuid())
+  name          String          @unique
+  sku           String?         @unique
+  unit          String
+  current_stock Decimal         @default(0) @db.Decimal(12, 3)
+  minimum_stock Decimal         @default(0) @db.Decimal(12, 3)
+  target_stock  Decimal?        @db.Decimal(12, 3)
+  average_cost  Decimal         @default(0) @db.Decimal(12, 2)
+  is_active     Boolean         @default(true)
+  created_at    DateTime        @default(now())
+  updated_at    DateTime        @updatedAt
+  recipeItems   RecipeItem[]
+  movements     StockMovement[]
+
+  @@index([is_active])
+  @@index([unit])
+}
+
+model RecipeItem {
+  id                String        @id @default(cuid())
+  product_id        String
+  product           Product       @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  inventory_item_id String
+  inventory_item    InventoryItem @relation(fields: [inventory_item_id], references: [id], onDelete: Restrict)
+  quantity          Decimal       @db.Decimal(12, 3)
+  created_at        DateTime      @default(now())
+  updated_at        DateTime      @updatedAt
+
+  @@unique([product_id, inventory_item_id])
+  @@index([product_id])
+  @@index([inventory_item_id])
+}
+
+model StockMovement {
+  id                String            @id @default(cuid())
+  inventory_item_id String
+  inventory_item    InventoryItem     @relation(fields: [inventory_item_id], references: [id], onDelete: Restrict)
+  type              StockMovementType
+  quantity          Decimal           @db.Decimal(12, 3)
+  unit_cost         Decimal?          @db.Decimal(12, 2)
+  reference_type    String?
+  reference_id      String?
+  note              String?
+  created_by        String?
+  creator           User?             @relation(fields: [created_by], references: [id])
+  created_at        DateTime          @default(now())
+
+  @@index([inventory_item_id])
+  @@index([type])
+  @@index([created_at])
+  @@index([inventory_item_id, created_at])
+  @@index([type, created_at])
+  @@index([reference_type, reference_id])
 }
 
 model Transaction {

@@ -1,9 +1,10 @@
 import { getFinancialKPI } from "@/lib/finance";
 import { getDateRange, formatRupiah } from "@/lib/utils";
+import { getInventoryOverview } from "@/lib/inventory";
 
 export default async function FinanceData({ tab, period }: { tab: string; period: string }) {
   const { from, to } = getDateRange(period);
-  const kpi = await getFinancialKPI(from, to);
+  const [kpi, inv] = await Promise.all([getFinancialKPI(from, to), getInventoryOverview(30).catch(()=>null)]);
 
   if (tab === "overview") {
     return (
@@ -23,6 +24,16 @@ export default async function FinanceData({ tab, period }: { tab: string; period
           <div><div className="muted" style={{ fontSize: 11 }}>Cash In</div><b style={{ color: "var(--green)" }}>{formatRupiah(kpi.cashInflow)}</b></div>
           <div style={{ textAlign: "right" }}><div className="muted" style={{ fontSize: 11 }}>Cash Out</div><b style={{ color: "var(--red)" }}>{formatRupiah(kpi.cashOutflow)}</b></div>
         </div>
+        {inv && (
+          <div className="card" style={{ padding: 12, background:"var(--surface2)", borderStyle:"dashed" }}>
+            <div style={{ fontSize:11, fontWeight:800, color:"var(--muted)", letterSpacing:".06em" }}>INVENTORY (INFORMATIONAL — NOT EXPENSE)</div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginTop:8 }}>
+              <div><div className="muted" style={{ fontSize:10 }}>STOCK VALUE</div><div style={{ fontWeight:800 }}>{formatRupiah(inv.forecast.totalStockValuation)}</div><div className="muted" style={{ fontSize:10 }}>current × avg_cost</div></div>
+              <div><div className="muted" style={{ fontSize:10 }}>FORECAST 7D / 30D</div><div style={{ fontWeight:700, fontSize:12 }}>{formatRupiah(inv.forecast.forecast7)} / {formatRupiah(inv.forecast.forecast30)}</div><div className="muted" style={{ fontSize:10 }}>Estimated purchasing — forecast</div></div>
+            </div>
+            <a href="/inventory" style={{ display:"block", textAlign:"center", marginTop:8, fontSize:11, fontWeight:700, color:"var(--accent)" }}>Lihat inventory →</a>
+          </div>
+        )}
       </div>
     );
   }

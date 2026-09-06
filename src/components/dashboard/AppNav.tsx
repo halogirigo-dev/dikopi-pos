@@ -6,6 +6,7 @@ import { signOut } from "next-auth/react";
 const nav = [
   { section: "OVERVIEW", items: [{ href: "/dashboard", label: "Dashboard", ico: "◫" }] },
   { section: "SALES", items: [{ href: "/pos", label: "POS", ico: "＋" }, { href: "/transactions", label: "Transactions", ico: "▤" }] },
+  { section: "INVENTORY", items: [{ href: "/inventory", label: "Inventory", ico: "▤" }] },
   { section: "FINANCE", items: [{ href: "/expenses", label: "Expenses", ico: "−" }, { href: "/cashflow", label: "Cashflow", ico: "↔" }, { href: "/reports", label: "Profit & Loss", ico: "◒", match: "/reports" }] },
   { section: "REPORTS", items: [{ href: "/reports?view=products", label: "Product Performance", ico: "◉" }] },
   { section: "MASTER", items: [{ href: "/products", label: "Products", ico: "☕" }, { href: "/categories", label: "Categories", ico: "▦" }, { href: "/users", label: "Users", ico: "◐" }] },
@@ -38,6 +39,7 @@ export default function AppNav({ role, userName }: { role: string; userName: str
     Dashboard: "nav-dashboard",
     POS: "nav-pos",
     Transactions: "nav-transactions",
+    Inventory: "nav-inventory",
     Expenses: "nav-finance",
     Cashflow: "nav-finance",
     "Profit & Loss": "nav-finance",

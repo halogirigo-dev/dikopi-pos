@@ -17,6 +17,10 @@ export default function ProductsClient({ categories, products: initial }: { cate
   const [showCalc, setShowCalc] = useState(false);
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
+  const [inventoryItems, setInventoryItems] = useState<any[]>([]);
+  const [recipeMap, setRecipeMap] = useState<Record<string, any[]>>({});
+  const [recipeFor, setRecipeFor] = useState<string | null>(null);
+  const [recipeDraft, setRecipeDraft] = useState<{ inventory_item_id: string; quantity: string }[]>([]);
   const { state: obState, isCompleted, markCompleted } = useOnboarding();
   const [showTour, setShowTour] = useState(false);
   useEffect(() => {
@@ -24,6 +28,31 @@ export default function ProductsClient({ categories, products: initial }: { cate
     const t = setTimeout(() => setShowTour(true), 900);
     return () => clearTimeout(t);
   }, [obState.tipsEnabled, obState.welcome, isCompleted]);
+
+  useEffect(() => {
+    fetch("/api/inventory/items").then(r=>r.ok?r.json():[]).then(d=> setInventoryItems(Array.isArray(d)?d:(d.items||[]))).catch(()=>{});
+    // fetch recipes for all products (parallel)
+    Promise.all(initial.map(p=> fetch(`/api/inventory/recipes?product_id=${p.id}`).then(r=>r.ok?r.json():[]).then(arr=> ({pid:p.id, arr})).catch(()=>({pid:p.id, arr:[]}))))
+      .then(results=> {
+        const m: Record<string, any[]> = {};
+        results.forEach(({pid, arr})=> m[pid]=arr);
+        setRecipeMap(m);
+      });
+  }, []);
+  async function openRecipe(productId: string){
+    setRecipeFor(productId);
+    const r = await fetch(`/api/inventory/recipes?product_id=${productId}`).then(x=>x.ok?x.json():[]).catch(()=>[]);
+    setRecipeDraft((r as any[]).map((x:any)=>({ inventory_item_id: x.inventory_item_id, quantity: String(x.quantity)})));
+    if(!(r as any[]).length) setRecipeDraft([]);
+  }
+  async function saveRecipe(){
+    if(!recipeFor) return;
+    const clean = recipeDraft.filter(x=> x.inventory_item_id && Number(x.quantity)>0);
+    const seen = new Set<string>();
+    for(const c of clean){ if(seen.has(c.inventory_item_id)) return alert("Duplikat bahan"); seen.add(c.inventory_item_id); }
+    const res = await fetch("/api/inventory/recipes",{ method:"PUT", headers:{ "Content-Type":"application/json"}, body: JSON.stringify({ product_id: recipeFor, items: clean.map(c=>({ inventory_item_id:c.inventory_item_id, quantity:Number(c.quantity)}))})});
+    if(res.ok){ alert("Resep disimpan"); const arr = await res.json(); setRecipeMap(prev=> ({...prev, [recipeFor]:arr})); setRecipeFor(null);} else alert(await res.text());
+  }
 
   const filtered = initial.filter(p=> !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.category.name.toLowerCase().includes(search.toLowerCase()));
 
@@ -54,6 +83,8 @@ export default function ProductsClient({ categories, products: initial }: { cate
         <style>{`@media(min-width:901px){ .mobile-product-cards{display:none} } @media(max-width:900px){ .desktop-table{display:none} }`}</style>
         {filtered.map(p=>{
           const m=calcMargin(p.selling_price, p.selling_price - p.cost_price);
+          const recipe = recipeMap[p.id] || [];
+          const hasRecipe = recipe.length>0;
           return (
             <div key={p.id} className="card" style={{ padding:16 }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
@@ -65,7 +96,16 @@ export default function ProductsClient({ categories, products: initial }: { cate
                 <div data-onboarding={filtered.indexOf(p)===0 ? "products-hpp" : undefined}><div className="muted" style={{ fontSize:11 }}>HPP</div><div style={{ fontWeight:700 }}>{formatRupiah(p.cost_price)}</div></div>
               </div>
               <div className="muted" style={{ fontSize:12, marginTop:8 }}>Margin {m.toFixed(1)}% • Gross {formatRupiah(p.selling_price - p.cost_price)}</div>
-              <button className="btn" style={{ width:"100%", marginTop:12 }} onClick={()=>openEdit(p)}>Edit</button>
+              <div style={{ marginTop:10, background: hasRecipe?"var(--green-soft)":"#FFF7E5", border:`1px solid ${hasRecipe?"#BBF7D0":"#FED7AA"}`, borderRadius:10, padding:"8px 10px" }}>
+                <div style={{ fontSize:11, fontWeight:800, color:hasRecipe?"var(--green)":"#B45309", letterSpacing:".06em" }}>{hasRecipe? "✓ Recipe terkonfigurasi" : "⚠ Recipe belum dikonfigurasi"}</div>
+                {hasRecipe ? <div className="muted" style={{ fontSize:11, marginTop:4 }}>{recipe.map((r:any)=> `${r.inventory_item.name} ${Number(r.quantity)}${r.inventory_item.unit}`).join(" • ")}</div>
+                : <div className="muted" style={{ fontSize:11, marginTop:4 }}>Setiap 1 {p.name} terjual tidak mengurangi stock. Lengkapi recipe.</div>}
+                <div style={{ fontSize:10, color:"var(--muted)", marginTop:4 }}>Product sold → Recipe → Stock berkurang otomatis</div>
+              </div>
+              <div style={{ display:"flex", gap:8, marginTop:12 }}>
+                <button className="btn" style={{ flex:1 }} onClick={()=>openEdit(p)}>Edit</button>
+                <button className="btn accent" style={{ flex:1 }} onClick={()=>openRecipe(p.id)}>Recipe</button>
+              </div>
             </div>
           );
         })}
@@ -77,15 +117,20 @@ export default function ProductsClient({ categories, products: initial }: { cate
           <tbody>
             {filtered.map(p=>{
               const m=calcMargin(p.selling_price, p.selling_price - p.cost_price);
+              const recipe = recipeMap[p.id] || [];
               return (
                 <tr key={p.id}>
-                  <td><b>{p.name}</b></td>
+                  <td><b>{p.name}</b><div className="muted" style={{ fontSize:11 }}>{recipe.length? recipe.map((r:any)=>`${r.inventory_item.name} ${Number(r.quantity)}${r.inventory_item.unit}`).join(" • ") : "⚠ no recipe"}</div></td>
                   <td>{p.category.name}</td>
                   <td>{formatRupiah(p.selling_price)}</td>
                   <td>{formatRupiah(p.cost_price)}</td>
                   <td>{m.toFixed(1)}%</td>
                   <td>{p.is_available ? <span className="badge">Available</span> : <span className="badge red">Hidden</span>}</td>
-                  <td><button className="btn" style={{ padding:"6px 10px", marginRight:6 }} onClick={()=>openEdit(p)}>Edit</button><button className="btn" style={{ color:"var(--red)" }} onClick={()=>del(p.id)}>Hapus</button></td>
+                  <td>
+                    <button className="btn" style={{ padding:"6px 10px", marginRight:6 }} onClick={()=>openEdit(p)}>Edit</button>
+                    <button className="btn" style={{ padding:"6px 10px", marginRight:6 }} onClick={()=>openRecipe(p.id)}>Recipe</button>
+                    <button className="btn" style={{ color:"var(--red)" }} onClick={()=>del(p.id)}>Hapus</button>
+                  </td>
                 </tr>
               );
             })}
@@ -145,6 +190,33 @@ export default function ProductsClient({ categories, products: initial }: { cate
               </div>
               {error && <div className="full" style={{ background:"var(--red-soft)", color:"var(--red)", border:"1px solid #f5c6c6", borderRadius:10, padding:"10px 12px", fontSize:12, lineHeight:"16px" }}>{error}</div>}
               <div className="full" style={{ display:"flex", gap:8, marginTop:4 }}><button className="btn accent" style={{ flex:1, minHeight:48 }} onClick={submit}>{editing?"Simpan":"Tambah"}</button><button className="btn" style={{ flex:1, minHeight:48 }} onClick={()=>setShowForm(false)}>Batal</button></div>
+            </div>
+          </div>
+        </div>
+      )}
+      {recipeFor && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.45)", zIndex:50, display:"grid", placeItems:"center", padding:16 }} onClick={()=>setRecipeFor(null)}>
+          <div className="card" style={{ padding:16, width:"100%", maxWidth:520, maxHeight:"90vh", overflowY:"auto" }} onClick={e=>e.stopPropagation()}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+              <h3 style={{ margin:0, fontSize:14, fontWeight:800 }}>Recipe — {initial.find(x=>x.id===recipeFor)?.name}</h3>
+              <button className="btn" style={{ minHeight:36, padding:"6px 10px" }} onClick={()=>setRecipeFor(null)}>✕</button>
+            </div>
+            <div className="muted" style={{ fontSize:11, marginBottom:10 }}>Setiap 1 {initial.find(x=>x.id===recipeFor)?.name} terjual akan mengurangi stock sesuai recipe di atas.</div>
+            {recipeDraft.map((r,idx)=> (
+              <div key={idx} style={{ display:"flex", gap:8, marginBottom:8, alignItems:"center" }}>
+                <select className="input" style={{ flex:"1 1 0" }} value={r.inventory_item_id} onChange={e=>{ const nd=[...recipeDraft]; nd[idx].inventory_item_id=e.target.value; setRecipeDraft(nd); }}>
+                  <option value="">Pilih bahan</option>
+                  {inventoryItems.map((it:any)=><option key={it.id||it.inventory_item_id} value={it.id||it.inventory_item_id}>{it.name} ({it.unit})</option>)}
+                </select>
+                <input className="input" style={{ width:110, flex:"0 0 110px" }} type="number" step="0.001" placeholder="Qty" value={r.quantity} onChange={e=>{ const nd=[...recipeDraft]; nd[idx].quantity=e.target.value; setRecipeDraft(nd); }} />
+                <span className="muted" style={{ fontSize:10 }}>{inventoryItems.find((x:any)=>(x.id||x.inventory_item_id)===r.inventory_item_id)?.unit||""}</span>
+                <button className="btn" style={{ width:44, height:44, flex:"0 0 44px", padding:0 }} onClick={()=>setRecipeDraft(recipeDraft.filter((_,i)=>i!==idx))}>×</button>
+              </div>
+            ))}
+            <button className="btn" style={{ width:"100%", minHeight:40 }} onClick={()=>setRecipeDraft([...recipeDraft,{inventory_item_id:"", quantity:""}])}>＋ Bahan</button>
+            <div style={{ display:"flex", gap:8, marginTop:12 }}><button className="btn accent" style={{ flex:1, minHeight:44 }} onClick={saveRecipe}>Simpan</button><button className="btn" style={{ flex:1 }} onClick={()=>setRecipeFor(null)}>Batal</button></div>
+            <div style={{ display:"flex", gap:8, marginTop:10 }}>
+              <a href="/inventory" className="btn" style={{ flex:1, fontSize:12 }}>Buka Inventory →</a>
             </div>
           </div>
         </div>

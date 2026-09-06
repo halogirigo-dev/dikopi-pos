@@ -8,6 +8,7 @@ export default function TransactionsClient({ transactions, isAdmin, activeLabel,
   const sp = useSearchParams();
   const [filter,setFilter]=useState("");
   const [detail,setDetail]=useState<any|null>(null);
+  const [consumption,setConsumption]=useState<any[]|null>(null);
   const [voidId,setVoidId]=useState<string|null>(null);
   const [reason,setReason]=useState("");
 
@@ -96,7 +97,7 @@ export default function TransactionsClient({ transactions, isAdmin, activeLabel,
 
       <div data-onboarding="trx-list" style={{ display:"grid", gap:12, marginTop:12 }}>
         {filtered.map(t=> (
-          <button key={t.id} className="card" style={{ padding:16, textAlign:"left", width:"100%" }} onClick={()=>setDetail(t)}>
+          <button key={t.id} className="card" style={{ padding:16, textAlign:"left", width:"100%" }} onClick={async()=>{ setDetail(t); setConsumption(null); try{ const r=await fetch(`/api/transactions/${t.id}/consumption`); if(r.ok) setConsumption(await r.json()); }catch{}}}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
               <b style={{ fontSize:13, fontVariantNumeric:"tabular-nums" }}>{t.invoice_number}</b>
               <span className={`badge ${t.status==="VOID"?"red":""}`}>{t.status==="VOID"?"Void":"Completed"}</span>
@@ -142,6 +143,21 @@ export default function TransactionsClient({ transactions, isAdmin, activeLabel,
                 <div className="list-row" style={{ borderBottom:0, padding:"6px 0", fontWeight:700 }}><span>Gross</span><b>{formatRupiah(detail.gross_profit)}</b></div>
                 {detail.payment_method==="CASH" && <div className="list-row" style={{ borderBottom:0, padding:"6px 0" }}><span className="muted">Diterima</span><b>{formatRupiah(detail.amount_paid||0)}</b></div>}
                 {detail.payment_method==="CASH" && <div className="list-row" style={{ borderBottom:0, padding:"6px 0" }}><span className="muted">Kembalian</span><b style={{ color:"var(--green)" }}>{formatRupiah(detail.change_amount||0)}</b></div>}
+              </div>
+              <div style={{ marginTop:12, background:"#fff", border:"1px solid var(--border)", borderRadius:12, padding:12 }}>
+                <div style={{ fontSize:11, fontWeight:800, letterSpacing:".06em", color:"var(--muted)" }}>STOCK CONSUMPTION — SALE → STOCK</div>
+                {!consumption ? <div className="muted" style={{ fontSize:12, marginTop:8 }}>Memuat konsumsi...</div>
+                : consumption.length===0 ? <div className="muted" style={{ fontSize:12, marginTop:8 }}>Recipe belum dikonfigurasi — tidak ada stock berkurang untuk transaksi ini.</div>
+                : <div style={{ display:"grid", gap:8, marginTop:8 }}>
+                    {consumption.map((c:any)=> (
+                      <div key={c.id} style={{ display:"flex", justifyContent:"space-between", background:"var(--surface2)", borderRadius:8, padding:"8px 10px" }}>
+                        <div><div style={{ fontWeight:700, fontSize:12 }}>{c.inventory_item.name}</div><div className="muted" style={{ fontSize:11 }}>{c.inventory_item.sku || c.inventory_item.unit}</div></div>
+                        <div style={{ textAlign:"right", fontWeight:800, color:"var(--red)", fontSize:13 }}>{Number(c.quantity).toFixed(2).replace(/\.?0+$/, "")}{c.inventory_item.unit}</div>
+                      </div>
+                    ))}
+                    <a href="/inventory" className="muted" style={{ fontSize:11, textDecoration:"underline" }}>Lihat inventory →</a>
+                  </div>
+                }
               </div>
 
               {isAdmin && detail.status!=="VOID" && <button className="btn" style={{ width:"100%", marginTop:12, color:"var(--red)", borderColor:"var(--red)" }} onClick={()=>{ setDetail(null); setVoidId(detail.id); }}>Void Transaksi</button>}

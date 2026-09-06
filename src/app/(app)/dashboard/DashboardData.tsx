@@ -1,5 +1,6 @@
 import { getFinancialKPI, getSalesReport, getProductPerformance } from "@/lib/finance";
 import { getDateRange, formatRupiah } from "@/lib/utils";
+import { getInventoryOverview } from "@/lib/inventory";
 
 export default async function DashboardData({ period }: { period: string }) {
   const { from, to } = getDateRange(period);
@@ -8,6 +9,8 @@ export default async function DashboardData({ period }: { period: string }) {
     getSalesReport(from, to),
     getProductPerformance(from, to),
   ]);
+  let invOverview: any = null;
+  try { invOverview = await getInventoryOverview(30); } catch { invOverview = null; }
 
   return (
     <>
@@ -53,6 +56,20 @@ export default async function DashboardData({ period }: { period: string }) {
         </div>
       </div>
 
+      {invOverview && invOverview.counts.reorder > 0 && (
+        <div className="card" style={{ padding: 16, marginTop: 12, borderColor: "var(--warning)", background: "var(--warning-soft)" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".08em", color: "var(--warning)" }}>⚠️ INVENTORY ALERT</div>
+          <div style={{ fontSize: 14, fontWeight: 700, marginTop: 6 }}>{invOverview.counts.reorder} bahan perlu reorder • {invOverview.counts.critical} kritis/habis</div>
+          <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Estimasi 7 hari {formatRupiah(invOverview.forecast.forecast7)} • Reorder sekarang {formatRupiah(invOverview.forecast.immediateReorderCost)}</div>
+          <a href="/inventory" className="btn" style={{ width: "100%", marginTop: 10, minHeight: 40, borderColor: "var(--warning)", color: "var(--warning)", background: "#fff" }}>Lihat Inventory →</a>
+        </div>
+      )}
+      {invOverview && invOverview.counts.reorder === 0 && invOverview.counts.total > 0 && (
+        <div className="card" style={{ padding: 16, marginTop: 12, background: "var(--green-soft)", borderColor: "var(--green)" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".08em", color: "var(--green)" }}>✓ STOK AMAN</div>
+          <div style={{ fontSize: 12, marginTop: 4 }} className="muted">{invOverview.counts.total} bahan • Valuasi {formatRupiah(invOverview.forecast.totalStockValuation)} • Forecast 30 hari {formatRupiah(invOverview.forecast.forecast30)}</div>
+        </div>
+      )}
       <div data-onboarding="dash-cash" className="card" style={{ padding: 16, marginTop: 12, background: "var(--primary)", color: "#fff", borderColor: "var(--primary)" }}>
         <div style={{ fontSize: 11, opacity: .7, letterSpacing: ".08em", fontWeight: 700 }}>CASH POSITION</div>
         <div style={{ fontSize: 24, fontWeight: 800, marginTop: 6, letterSpacing: "-.02em" }}>{formatRupiah(kpi.cashPosition)}</div>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import MoreLogout from "@/components/mobile/MoreLogout";
 
 const adminLinks = [
+  { href:"/inventory", label:"Inventory", desc:"Stok, runway & forecast", ico:"▦" },
   { href:"/products", label:"Products", desc:"Kelola menu & HPP", ico:"☕" },
   { href:"/categories", label:"Categories", desc:"Kategori produk", ico:"▦" },
   { href:"/users", label:"Users", desc:"Kasir & owner", ico:"◐" },

@@ -89,31 +89,101 @@ export async function POST(req: Request) {
     change = 0;
   }
 
-  // invoice number
+  // ---- Inventory consumption resolution (Product -> Recipe -> InventoryItem) ----
+  // Fetch recipes for products in this sale
+  const recipeItems = await prisma.recipeItem.findMany({
+    where: { product_id: { in: productIds } },
+    include: { inventory_item: true },
+  });
+  // Group by product_id
+  const recipeByProduct = new Map<string, typeof recipeItems>();
+  for (const r of recipeItems) {
+    if (!recipeByProduct.has(r.product_id)) recipeByProduct.set(r.product_id, []);
+    recipeByProduct.get(r.product_id)!.push(r);
+  }
+  // Aggregate total consumption per inventory_item_id
+  const consumptionMap = new Map<string, { qty: number; unitCost: number; name: string }>();
+  for (const it of items) {
+    const recipe = recipeByProduct.get(it.product_id) || [];
+    const saleQty = Number(it.quantity);
+    for (const ri of recipe) {
+      if (!ri.inventory_item.is_active) continue;
+      const perUnit = Number(ri.quantity);
+      const need = perUnit * saleQty;
+      const existing = consumptionMap.get(ri.inventory_item_id);
+      if (existing) existing.qty += need;
+      else consumptionMap.set(ri.inventory_item_id, { qty: need, unitCost: Number(ri.inventory_item.average_cost), name: ri.inventory_item.name });
+    }
+  }
+
+  // invoice number (reserve before transaction)
   const today = new Date();
   today.setHours(0,0,0,0);
   const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate()+1);
   const countToday = await prisma.transaction.count({ where: { created_at: { gte: today, lt: tomorrow } }});
   let invoice = generateInvoiceNumber(new Date(), countToday);
-  // retry if collision (rare)
+
+  // Atomic transaction: Transaction + Items + StockMovement + InventoryItem update
+  // If inventory consumption fails, entire sale rolls back.
   for (let attempt=0; attempt<3; attempt++) {
     try {
-      const tx = await prisma.transaction.create({
-        data: {
-          invoice_number: invoice,
-          user_id: session.user.id,
-          total_revenue: totalRevenue,
-          total_cogs: totalCogs,
-          gross_profit: grossProfit,
-          payment_method: payment_method as any,
-          status: "COMPLETED" as any,
-          amount_paid: paid,
-          change_amount: change,
-          items: { create: lineItems }
-        },
-        include: { items: true }
-      });
-      // paksa revalidate agar Dashboard/Finance/Cashflow/Reports/Transactions langsung fresh saat navigasi berikutnya
+      const tx = await prisma.$transaction(async (txClient) => {
+        // Pre-check stock availability inside transaction to prevent race & negative stock
+        if (consumptionMap.size > 0) {
+          const invIds = Array.from(consumptionMap.keys());
+          const invItems = await txClient.inventoryItem.findMany({ where: { id: { in: invIds } } });
+          const invMap = new Map(invItems.map(i=>[i.id,i]));
+          for (const entry of Array.from(consumptionMap.entries())) {
+            const invId = entry[0]; const need = entry[1];
+            const inv = invMap.get(invId) as any;
+            if (!inv) throw new Error(`Inventory item not found ${invId}`);
+            const current = inv.current_stock?.toNumber ? inv.current_stock.toNumber() : Number(inv.current_stock);
+            if (current < need.qty) {
+              // Business rule: prevent negative stock - rollback entire sale
+              throw Object.assign(new Error(`Stok tidak cukup: ${need.name} butuh ${need.qty} ${inv.unit}, sisa ${current} ${inv.unit}`), { code: "INSUFFICIENT_STOCK", details: { inventory_item_id: invId, name: need.name, required: need.qty, available: current, unit: inv.unit } });
+            }
+          }
+        }
+
+        const created = await txClient.transaction.create({
+          data: {
+            invoice_number: invoice,
+            user_id: session.user.id,
+            total_revenue: totalRevenue,
+            total_cogs: totalCogs,
+            gross_profit: grossProfit,
+            payment_method: payment_method as any,
+            status: "COMPLETED" as any,
+            amount_paid: paid,
+            change_amount: change,
+            items: { create: lineItems }
+          },
+          include: { items: true }
+        });
+
+        // Create stock movements and update current_stock
+        for (const entry of Array.from(consumptionMap.entries())) {
+          const invId = entry[0]; const need = entry[1];
+          await txClient.stockMovement.create({
+            data: {
+              inventory_item_id: invId,
+              type: "SALE_CONSUMPTION",
+              quantity: -Math.abs(need.qty),
+              unit_cost: need.unitCost || null,
+              reference_type: "TRANSACTION",
+              reference_id: created.id,
+              note: `POS sale ${created.invoice_number}`,
+              created_by: session.user.id,
+            }
+          });
+          await txClient.inventoryItem.update({
+            where: { id: invId },
+            data: { current_stock: { decrement: Math.abs(need.qty) } }
+          });
+        }
+        return created;
+      }, { maxWait: 10000, timeout: 15000 });
+
       try {
         revalidatePath("/dashboard");
         revalidatePath("/finance");
@@ -121,12 +191,20 @@ export async function POST(req: Request) {
         revalidatePath("/reports");
         revalidatePath("/transactions");
         revalidatePath("/pos");
+        revalidatePath("/inventory");
       } catch {}
       return Response.json(tx);
     } catch (e: any) {
       if (e.code === "P2002") {
         invoice = generateInvoiceNumber(new Date(), countToday + attempt + 1);
         continue;
+      }
+      if (e.code === "INSUFFICIENT_STOCK" || e.message?.includes("Stok tidak cukup")) {
+        return new Response(JSON.stringify({ error: e.message, details: e.details || null }), { status: 409, headers: { "Content-Type":"application/json" } });
+      }
+      // Prisma transaction error wrapping?
+      if (e.message?.includes("Stok tidak cukup")) {
+        return new Response(JSON.stringify({ error: e.message }), { status: 409, headers: { "Content-Type":"application/json" } });
       }
       throw e;
     }
