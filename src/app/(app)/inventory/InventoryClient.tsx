@@ -40,7 +40,7 @@ function fmtDateLong(d: string | Date | null) {
 function StockBar({ pct, status }: { pct: number; status: string }) {
   const m = statusMeta(status);
   return (
-    <div aria-label={`Stock level ${Math.round(pct)} percent`} role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} style={{ height: 8, background: "#E5E3DE", borderRadius: 999, overflow: "hidden" }}>
+    <div aria-label={`Stock level ${Math.round(pct)} percent`} role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} style={{ height: 6, background: "#E5E3DE", borderRadius: 999, overflow: "hidden" }}>
       <div style={{ width: `${Math.min(100, Math.max(0, pct))}%`, height: "100%", background: m.bar, borderRadius: 999, transition: "width .4s ease" }} />
     </div>
   );
@@ -379,52 +379,57 @@ export default function InventoryClient({ initialOverview, products, windowDays 
               const m = statusMeta(it.stock_status);
               const hasForecast = it.has_forecast && it.runway_days != null;
               const isOut = it.stock_status === "OUT";
+              const stockQty = normalizeQty(it.current_stock, it.unit);
+              const targetLabel = fmtTarget(it.target_stock, it.unit);
               return (
-                <div key={it.inventory_item_id} className="card" style={{ padding: 16, cursor: "pointer" }} onClick={() => setSelected(it)} role="button" tabIndex={0} aria-label={`${it.name} ${m.label} ${hasForecast ? `${it.runway_days} days` : isOut ? "out of stock" : "no usage data"}`}>
-                  {/* A+B+C — name + current */}
+                <div key={it.inventory_item_id} className="card" style={{ padding: 14, cursor: "pointer", display: "grid", gap: 10 }} onClick={() => setSelected(it)} role="button" tabIndex={0} aria-label={`${it.name} ${m.label} ${hasForecast ? `${it.runway_days} hari` : isOut ? "habis" : "tanpa data"}`}>
+                  {/* Header: name + compact status pill */}
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.name}</div>
-                      <div style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700, color: m.color, marginTop: 4, letterSpacing: ".02em" }} aria-label={`Status ${m.label}`}>
-                        <span aria-hidden style={{ color: m.color }}>●</span> {m.label}
-                      </div>
-                    </div>
-                    <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-.02em", lineHeight: 1, flexShrink: 0 }}>{normalizeQty(it.current_stock, it.unit)}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.25, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.name}</div>
+                    <span style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 8px", borderRadius: 999, background: m.bg, color: m.color, fontSize: 10, fontWeight: 800, letterSpacing: ".06em", lineHeight: 1 }}>
+                      <span aria-hidden style={{ width: 6, height: 6, borderRadius: "50%", background: m.color, display: "inline-block" }} />
+                      {m.label}
+                    </span>
                   </div>
 
-                  {/* D — bar */}
-                  <div style={{ marginTop: 12 }}>
-                    <StockBar pct={it.bar_pct} status={it.stock_status} />
-                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 11, color: "var(--muted)" }}>
-                      <span>{Math.round(it.bar_pct)}%</span>
-                      <span>Target {fmtTarget(it.target_stock, it.unit)}</span>
-                    </div>
+                  {/* Hero: current stock — strongest hierarchy */}
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+                    <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-.03em", lineHeight: 1 }}>{stockQty}</div>
+                    <div style={{ fontSize: 11, color: "var(--text2)", fontWeight: 600 }}>target {targetLabel}</div>
                   </div>
 
-                  {/* E+F — forecast + restock */}
-                  <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "end" }}>
-                    <div>
+                  {/* Bar — compact 6px, less noise */}
+                  <div style={{ height: 6, background: "#E5E3DE", borderRadius: 999, overflow: "hidden" }} role="progressbar" aria-valuenow={Math.round(it.bar_pct)} aria-valuemin={0} aria-valuemax={100} aria-label={`Stok ${Math.round(it.bar_pct)} persen`}>
+                    <div style={{ width: `${Math.min(100, Math.max(0, it.bar_pct))}%`, height: "100%", background: m.bar, borderRadius: 999, transition: "width .4s ease" }} />
+                  </div>
+
+                  {/* Runway + restock — single integrated row */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "center", background: "var(--surface2)", borderRadius: 12, padding: "10px 12px" }}>
+                    <div style={{ minWidth: 0 }}>
                       {isOut ? (
-                        <div style={{ fontSize: 13, fontWeight: 600, color: "#DC2626" }}>Out of stock</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: "#DC2626", lineHeight: 1.3 }}>Habis • restock sekarang</div>
                       ) : hasForecast ? (
                         <>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>~{it.runway_days} days left</div>
-                          <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>Runs out {fmtDate(it.run_out_date)}</div>
+                          <div style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.3 }}>~{it.runway_days} hari lagi</div>
+                          <div style={{ fontSize: 11, color: "var(--text2)", marginTop: 2, lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Habis {fmtDate(it.run_out_date)} • {it.avg_daily_consumption.toFixed(1)} {it.unit}/hari</div>
                         </>
                       ) : (
-                        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--muted)" }}>— No usage data</div>
+                        <div style={{ fontSize: 12, fontWeight: 500, color: "var(--text2)" }}>Belum ada data pakai</div>
                       )}
                     </div>
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".08em", color: "var(--muted)" }}>RESTOCK</div>
-                      <div style={{ fontSize: 13, fontWeight: 600, marginTop: 2 }}>{it.reorder_needed ? formatRupiah(it.reorder_cost) : "—"}</div>
+                    <div style={{ textAlign: "right", flexShrink: 0 }}>
+                      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: ".07em", color: "var(--text2)", lineHeight: 1 }}>BIAYA RESTOCK</div>
+                      <div style={{ fontSize: 13, fontWeight: 800, marginTop: 2, color: it.reorder_needed ? "var(--text)" : "var(--text2)" }}>{it.reorder_needed ? formatRupiah(it.reorder_cost) : "—"}</div>
+                      {it.reorder_needed && it.reorder_quantity != null && (
+                        <div style={{ fontSize: 10, color: "var(--text2)", marginTop: 1 }}>{normalizeQty(it.reorder_quantity, it.unit)} • ke target</div>
+                      )}
                     </div>
                   </div>
 
-                  {/* G — actions balanced */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 14 }}>
-                    <button className="btn" style={{ minHeight: 40, fontSize: 13, fontWeight: 600 }} onClick={(e) => { e.stopPropagation(); setSelected(it); }}>Detail →</button>
-                    <button className="btn accent" style={{ minHeight: 40, fontSize: 13, fontWeight: 600 }} onClick={(e) => { e.stopPropagation(); setPurchase({ inventory_item_id: it.inventory_item_id, quantity: "", unit_cost: String(it.average_cost), note: "" }); setShowPurchase(true); }}>Restock</button>
+                  {/* Actions — low noise, 40px meets tap target */}
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button className="btn" style={{ flex: 1, minHeight: 40, padding: "8px 10px", fontSize: 13, fontWeight: 600, borderRadius: 10 }} onClick={(e) => { e.stopPropagation(); setSelected(it); }}>Detail</button>
+                    <button className="btn accent" style={{ flex: 1, minHeight: 40, padding: "8px 10px", fontSize: 13, fontWeight: 600, borderRadius: 10 }} onClick={(e) => { e.stopPropagation(); setPurchase({ inventory_item_id: it.inventory_item_id, quantity: "", unit_cost: String(it.average_cost), note: "" }); setShowPurchase(true); }}>{isOut ? "Restock sekarang" : it.reorder_needed ? "Restock" : "Beli"}</button>
                   </div>
                 </div>
               );

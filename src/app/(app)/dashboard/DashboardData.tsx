@@ -13,22 +13,22 @@ export default async function DashboardData({ period }: { period: string }) {
   try { invOverview = await getInventoryOverview(30); } catch { invOverview = null; }
 
   return (
-    <>
-      <div data-onboarding="dash-revenue" className="card" style={{ padding: 16, marginTop: 12 }}>
+    <div style={{ display:"grid", gap:8 }}>
+      <div data-onboarding="dash-revenue" className="card" style={{ padding:14 }}>
         <div className="kpi-label">Revenue Hari Ini</div>
-        <div className="kpi-value lg">{formatRupiah(kpi.revenue)}</div>
+        <div className="kpi-value lg" style={{ fontVariantNumeric:"tabular-nums" as any }}>{formatRupiah(kpi.revenue)}</div>
         <div className="delta">{kpi.transactionCount} transaksi • {kpi.grossMargin.toFixed(1)}% gross margin</div>
-        <a href="/pos" className="btn accent" style={{ width: "100%", marginTop: 14, minHeight: 48, fontSize: 15 }}>＋ Buat Transaksi</a>
+        <a href="/pos" className="btn accent" style={{ width: "100%", marginTop:12, minHeight:44, fontSize:14 }}>＋ Buat Transaksi</a>
       </div>
 
-      <div data-onboarding="dash-kpi" className="grid-kpi" style={{ marginTop: 12 }}>
-        <div className="card kpi"><div className="kpi-label">HPP</div><div className="kpi-value" style={{ fontSize: 20 }}>{formatRupiah(kpi.hpp)}</div><div className="delta">{kpi.revenue ? ((kpi.hpp / kpi.revenue) * 100).toFixed(1) : 0}% of revenue</div></div>
-        <div className="card kpi"><div className="kpi-label">Gross Profit</div><div className="kpi-value positive" style={{ fontSize: 20 }}>{formatRupiah(kpi.grossProfit)}</div><div className="delta">Margin {kpi.grossMargin.toFixed(1)}%</div></div>
-        <div className="card kpi"><div className="kpi-label">Expense</div><div className="kpi-value" style={{ fontSize: 20 }}>{formatRupiah(kpi.totalExpense)}</div><div className="delta">Operasional</div></div>
-        <div className="card kpi"><div className="kpi-label">Net Profit</div><div className={`kpi-value ${kpi.netProfit >= 0 ? "positive" : "negative"}`} style={{ fontSize: 20 }}>{formatRupiah(kpi.netProfit)}</div><div className="delta">{kpi.revenue ? ((kpi.netProfit / kpi.revenue) * 100).toFixed(1) : 0}% net</div></div>
+      <div data-onboarding="dash-kpi" className="grid-kpi">
+        <div className="card kpi" style={{ padding:14 }}><div className="kpi-label">HPP</div><div className="kpi-value" style={{ fontSize:20, fontVariantNumeric:"tabular-nums" as any }}>{formatRupiah(kpi.hpp)}</div><div className="delta">{kpi.revenue ? ((kpi.hpp / kpi.revenue) * 100).toFixed(1) : 0}% of revenue</div></div>
+        <div className="card kpi" style={{ padding:14 }}><div className="kpi-label">Gross Profit</div><div className="kpi-value positive" style={{ fontSize:20, fontVariantNumeric:"tabular-nums" as any }}>{formatRupiah(kpi.grossProfit)}</div><div className="delta">Margin {kpi.grossMargin.toFixed(1)}%</div></div>
+        <div className="card kpi" style={{ padding:14 }}><div className="kpi-label">Expense</div><div className="kpi-value" style={{ fontSize:20, fontVariantNumeric:"tabular-nums" as any }}>{formatRupiah(kpi.totalExpense)}</div><div className="delta">Operasional</div></div>
+        <div className="card kpi" style={{ padding:14 }}><div className="kpi-label">Net Profit</div><div className={`kpi-value ${kpi.netProfit >= 0 ? "positive" : "negative"}`} style={{ fontSize:20, fontVariantNumeric:"tabular-nums" as any }}>{formatRupiah(kpi.netProfit)}</div><div className="delta">{kpi.revenue ? ((kpi.netProfit / kpi.revenue) * 100).toFixed(1) : 0}% net</div></div>
       </div>
 
-      <div data-onboarding="dash-chart" className="card" style={{ marginTop: 12 }}>
+      <div data-onboarding="dash-chart" className="card">
         <div className="card-head"><div className="card-title">Ringkasan Penjualan</div><div className="muted">{period}</div></div>
         <div style={{ padding: 16, display: "flex", alignItems: "flex-end", gap: 8, height: 120 }}>
           {sales.length ? sales.slice(-7).map((s, i, arr) => {
@@ -40,8 +40,8 @@ export default async function DashboardData({ period }: { period: string }) {
         <div className="muted" style={{ padding: "0 16px 12px", fontSize: 11 }}>7 hari terakhir · Cashflow In {formatRupiah(kpi.cashInflow)} / Out {formatRupiah(kpi.cashOutflow)}</div>
       </div>
 
-      <div className="card" style={{ marginTop: 12 }}>
-        <div className="card-head"><div className="card-title">Top Products</div><a href="/reports?view=products" className="btn" style={{ fontSize: 12, minHeight: 32 }}>Lihat semua</a></div>
+      <div className="card">
+        <div className="card-head"><div className="card-title">Top Products</div><a href="/reports?view=products" className="btn" style={{ fontSize:12, minHeight:32, borderRadius:10 }}>Lihat semua</a></div>
         <div className="list">
           {topProducts.slice(0, 3).map((p, i) => (
             <div key={p.product_id} className="list-row">
@@ -57,24 +57,24 @@ export default async function DashboardData({ period }: { period: string }) {
       </div>
 
       {invOverview && invOverview.counts.reorder > 0 && (
-        <div className="card" style={{ padding: 16, marginTop: 12, borderColor: "var(--warning)", background: "var(--warning-soft)" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".08em", color: "var(--warning)" }}>⚠️ INVENTORY ALERT</div>
-          <div style={{ fontSize: 14, fontWeight: 700, marginTop: 6 }}>{invOverview.counts.reorder} bahan perlu reorder • {invOverview.counts.critical} kritis/habis</div>
-          <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Estimasi 7 hari {formatRupiah(invOverview.forecast.forecast7)} • Reorder sekarang {formatRupiah(invOverview.forecast.immediateReorderCost)}</div>
-          <a href="/inventory" className="btn" style={{ width: "100%", marginTop: 10, minHeight: 40, borderColor: "var(--warning)", color: "var(--warning)", background: "#fff" }}>Lihat Inventory →</a>
+        <div className="card" style={{ padding:14, borderColor:"var(--warning)", background:"var(--warning-soft)" }}>
+          <div style={{ fontSize:10, fontWeight:800, letterSpacing:".08em", color:"var(--warning)" }}>⚠️ INVENTORY ALERT</div>
+          <div style={{ fontSize:14, fontWeight:700, marginTop:6 }}>{invOverview.counts.reorder} bahan perlu reorder • {invOverview.counts.critical} kritis/habis</div>
+          <div className="muted" style={{ fontSize:11, marginTop:4 }}>Estimasi 7 hari {formatRupiah(invOverview.forecast.forecast7)} • Reorder sekarang {formatRupiah(invOverview.forecast.immediateReorderCost)}</div>
+          <a href="/inventory" className="btn" style={{ width:"100%", marginTop:10, minHeight:40, borderColor:"var(--warning)", color:"var(--warning)", background:"#fff", borderRadius:10 }}>Lihat Inventory →</a>
         </div>
       )}
       {invOverview && invOverview.counts.reorder === 0 && invOverview.counts.total > 0 && (
-        <div className="card" style={{ padding: 16, marginTop: 12, background: "var(--green-soft)", borderColor: "var(--green)" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".08em", color: "var(--green)" }}>✓ STOK AMAN</div>
-          <div style={{ fontSize: 12, marginTop: 4 }} className="muted">{invOverview.counts.total} bahan • Valuasi {formatRupiah(invOverview.forecast.totalStockValuation)} • Forecast 30 hari {formatRupiah(invOverview.forecast.forecast30)}</div>
+        <div className="card" style={{ padding:14, background:"var(--green-soft)", borderColor:"var(--green)" }}>
+          <div style={{ fontSize:10, fontWeight:800, letterSpacing:".08em", color:"var(--green)" }}>✓ STOK AMAN</div>
+          <div style={{ fontSize:11, marginTop:4 }} className="muted">{invOverview.counts.total} bahan • Valuasi {formatRupiah(invOverview.forecast.totalStockValuation)} • Forecast 30 hari {formatRupiah(invOverview.forecast.forecast30)}</div>
         </div>
       )}
-      <div data-onboarding="dash-cash" className="card" style={{ padding: 16, marginTop: 12, background: "var(--primary)", color: "#fff", borderColor: "var(--primary)" }}>
-        <div style={{ fontSize: 11, opacity: .7, letterSpacing: ".08em", fontWeight: 700 }}>CASH POSITION</div>
-        <div style={{ fontSize: 24, fontWeight: 800, marginTop: 6, letterSpacing: "-.02em" }}>{formatRupiah(kpi.cashPosition)}</div>
-        <div style={{ fontSize: 12, opacity: .7, marginTop: 4 }}>Net cashflow {formatRupiah(kpi.netCashflow)} • Opening {formatRupiah(kpi.openingBalance)}</div>
+      <div data-onboarding="dash-cash" className="card" style={{ padding: 14, background: "var(--primary)", color: "#fff", borderColor: "var(--primary)" }}>
+        <div style={{ fontSize:10, opacity:.7, letterSpacing:".08em", fontWeight:800 }}>CASH POSITION</div>
+        <div style={{ fontSize:24, fontWeight:800, marginTop:6, letterSpacing:"-.02em", fontVariantNumeric:"tabular-nums" as any }}>{formatRupiah(kpi.cashPosition)}</div>
+        <div style={{ fontSize:11, opacity:.7, marginTop:4 }}>Net cashflow {formatRupiah(kpi.netCashflow)} • Opening {formatRupiah(kpi.openingBalance)}</div>
       </div>
-    </>
+    </div>
   );
 }

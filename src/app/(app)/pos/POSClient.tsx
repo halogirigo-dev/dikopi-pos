@@ -71,52 +71,72 @@ export default function POSClient({ categories, products }: { categories: Cat[];
   }
 
   return (
-    <div style={{ paddingBottom: 80 }}>
-      {/* Header mobile per spec: Back | POS | Search handled via topbar, here we show search */}
-      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
-        <a href="/dashboard" className="btn" style={{ minHeight:40, padding:"8px 12px" }}>‹ Back</a>
-        <span style={{ fontWeight:700 }}>POS</span>
-        <span className="muted" style={{ marginLeft:"auto", fontSize:12 }}>{filtered.length} produk</span>
+    <div style={{ paddingBottom: 88 }}>
+      {/* Compact page header — Warm Counter, hierarchy: POS > count, Back de-emphasized */}
+      <div style={{ display:"flex", alignItems:"flex-end", justifyContent:"space-between", gap:12, marginBottom:8 }}>
+        <div style={{ minWidth:0 }}>
+          <h1 style={{ fontSize:18, fontWeight:800, letterSpacing:"-.03em", lineHeight:1, margin:0 }}>POS</h1>
+          <div style={{ fontSize:11, color:"var(--text2)", marginTop:4, fontWeight:500, letterSpacing:".01em" }}>{filtered.length} produk • {categories.length} kategori</div>
+        </div>
+        <a href="/dashboard" style={{ fontSize:12, fontWeight:600, color:"var(--muted)", textDecoration:"none", padding:"6px 8px", flexShrink:0, lineHeight:1 }}>‹ Kembali</a>
       </div>
 
-      <input data-onboarding="pos-search" className="input" placeholder="Search product..." value={search} onChange={e=>setSearch(e.target.value)} style={{ marginBottom:12 }} />
+      {/* Search — primary control, dominant, 48px, 12px radius */}
+      <input data-onboarding="pos-search" className="input" placeholder="Search produk..." value={search} onChange={e=>setSearch(e.target.value)} style={{ marginBottom:8 }} />
 
-      <div data-onboarding="pos-categories" className="catbar">
+      {/* Category row — pill chips, horizontal scroll, charcoal active */}
+      <div data-onboarding="pos-categories" className="catbar scrollbar-none" style={{ marginBottom:10, gap:8, paddingBottom:2 }}>
         <button className={`cat ${activeCat==="All"?"active":""}`} onClick={()=>setActiveCat("All")}>All</button>
         {categories.map(c=> (
           <button key={c.id} className={`cat ${activeCat===c.name?"active":""}`} onClick={()=>setActiveCat(c.name)}>{c.name}</button>
         ))}
       </div>
 
-      <div className="products" data-onboarding="pos-products">
-        {filtered.map((p,i)=> (
-          <div key={p.id} className="product" {...(i===0?{"data-onboarding":"pos-product"}:{})}>
-            <div className="prod-info">
-              <div className="muted" style={{ fontSize:11, fontWeight:700, letterSpacing:".04em" }}>{p.category.name}</div>
-              <div className="prod-name">{p.name}</div>
-              <div className="price" style={{ marginTop:4 }}>{formatRupiah(p.selling_price)}</div>
-              <button className="btn primary" style={{ marginTop:10, minHeight:36, padding:"6px 10px", fontSize:13, width:"100%" }} onClick={()=>cart.add({product_id:p.id,product_name:p.name,selling_price:p.selling_price,cost_price:p.cost_price,image_url:p.image_url})}>＋ Tambah</button>
+      {/* Product grid — dense, 2-col, Card 14/16 primitive, tighter rhythm */}
+      <div className="products" data-onboarding="pos-products" style={{ gap:8 }}>
+        {filtered.map((p,i)=> {
+          const qty = cart.items.find(it=>it.product_id===p.id)?.quantity || 0;
+          const isAdded = qty > 0;
+          return (
+          <div key={p.id} className="product" {...(i===0?{"data-onboarding":"pos-product"}:{})} style={{ background:"var(--surface)", border:"1px solid var(--border)", borderRadius:16, overflow:"hidden", boxShadow:"var(--shadow)" }}>
+            <div style={{ padding:12, flex:1, display:"flex", flexDirection:"column", gap:4 }}>
+              <div style={{ fontSize:10, fontWeight:700, letterSpacing:".06em", color:"var(--muted)", textTransform:"uppercase", lineHeight:1 }}>{p.category.name}</div>
+              <div style={{ fontSize:14, fontWeight:700, lineHeight:"16px", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" as any, overflow:"hidden", minHeight:32 }}>{p.name}</div>
+              <div style={{ fontSize:14, fontWeight:800, color:"var(--text)", letterSpacing:"-.01em", fontVariantNumeric:"tabular-nums" as any, marginTop:2 }}>{formatRupiah(p.selling_price)}</div>
+              {isAdded ? (
+                <div style={{ marginTop:8, display:"flex", alignItems:"center", gap:6, background:"var(--surface2)", border:"1px solid var(--border)", borderRadius:12, padding:4 }}>
+                  <button aria-label="Kurangi" className="btn" style={{ width:36, height:36, minHeight:36, minWidth:36, padding:0, borderRadius:8, fontSize:16, flex:"0 0 36px", background:"var(--surface)" }} onClick={()=>cart.updateQty(p.id, qty-1)}>−</button>
+                  <span style={{ flex:1, textAlign:"center", fontWeight:800, fontSize:14, fontVariantNumeric:"tabular-nums" as any, minWidth:20 }}>{qty}</span>
+                  <button aria-label="Tambah" className="btn" style={{ width:36, height:36, minHeight:36, minWidth:36, padding:0, borderRadius:8, fontSize:16, flex:"0 0 36px", background:"var(--surface)" }} onClick={()=>cart.updateQty(p.id, qty+1)}>＋</button>
+                </div>
+              ) : (
+                <button className="btn" style={{ marginTop:8, minHeight:40, padding:"8px 12px", fontSize:13, fontWeight:600, width:"100%", borderRadius:10 }} onClick={()=>cart.add({product_id:p.id,product_name:p.name,selling_price:p.selling_price,cost_price:p.cost_price,image_url:p.image_url})}>＋ Tambah</button>
+              )}
             </div>
           </div>
-        ))}
+        )})}
       </div>
-      {filtered.length===0 && <div className="card" style={{ padding:20, textAlign:"center", marginTop:12 }}><span className="muted">Tidak ada produk</span></div>}
+      {filtered.length===0 && <div className="card" style={{ padding:20, textAlign:"center", marginTop:10 }}><span className="muted" style={{ fontSize:13 }}>Tidak ada produk</span></div>}
 
-      {/* Hint for onboarding when cart empty */}
+      {/* Empty cart hint — secondary, dashed, no heavy CTA */}
       {cart.items.length===0 && (
-        <div data-onboarding="pos-cart" style={{ marginTop:12, border:"1px dashed var(--border)", borderRadius:12, padding:12, textAlign:"center", background:"var(--surface)" }}>
-          <div style={{ fontSize:13, fontWeight:600 }}>🛒 Keranjang kosong</div>
-          <div className="muted" style={{ fontSize:11, marginTop:2 }}>Tambah produk untuk melihat total di sini</div>
+        <div data-onboarding="pos-cart" style={{ marginTop:10, border:"1px dashed var(--border)", borderRadius:12, padding:12, textAlign:"center", background:"var(--surface)" }}>
+          <div style={{ fontSize:13, fontWeight:600, color:"var(--text2)" }}>Keranjang kosong</div>
+          <div className="muted" style={{ fontSize:11, marginTop:2 }}>Tambah produk untuk melihat total</div>
         </div>
       )}
       <div data-onboarding="pos-pay" style={{ height:1 }} />
 
-      {/* Sticky bottom cart summary */}
+      {/* Transaction trigger — Bottom Sheet primitive, compact, not large panel */}
       {cart.items.length>0 && (
-        <div data-onboarding="pos-cart" style={{ position:"fixed", bottom:72, left:0, right:0, padding:"0 16px", zIndex:30 }}>
-          <div className="card" style={{ padding:12, display:"flex", justifyContent:"space-between", alignItems:"center", gap:12 }}>
-            <div><div style={{ fontWeight:700, fontSize:14 }}>{count} items</div><div style={{ fontWeight:800, fontSize:16 }}>{formatRupiah(total)}</div></div>
-            <button className="btn primary" style={{ minHeight:48, padding:"12px 20px" }} onClick={()=>setShowCart(true)}>Lihat Keranjang</button>
+        <div data-onboarding="pos-cart" style={{ position:"fixed", bottom:64, left:12, right:12, zIndex:30 }}>
+          <div className="card" style={{ padding:"10px 12px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, borderRadius:14 }}>
+            <div style={{ display:"flex", alignItems:"baseline", gap:6, minWidth:0 }}>
+              <span style={{ fontWeight:800, fontSize:14 }}>{count} item</span>
+              <span style={{ fontWeight:800, fontSize:14, fontVariantNumeric:"tabular-nums" as any }}>{formatRupiah(total)}</span>
+              <span style={{ fontSize:11, color:"var(--text2)", display:"none" } as any}></span>
+            </div>
+            <button className="btn primary" style={{ minHeight:40, padding:"8px 16px", fontSize:13, fontWeight:700, borderRadius:10, flexShrink:0 }} onClick={()=>setShowCart(true)}>Lihat • Bayar</button>
           </div>
         </div>
       )}
@@ -178,7 +198,7 @@ export default function POSClient({ categories, products }: { categories: Cat[];
 
               {payment==="CASH" && (
                 <div style={{ background:"var(--surface2)", border:"1px solid var(--border)", borderRadius:16, padding:14, marginBottom:12 }}>
-                  <div style={{ fontSize:11, fontWeight:700, color:"#777", marginBottom:8 }}>Uang Diterima</div>
+                  <div style={{ fontSize:11, fontWeight:700, color:"var(--text2)", marginBottom:8 }}>Uang Diterima</div>
                   <input className="input" inputMode="numeric" placeholder={formatRupiah(total)} value={amountPaid} onChange={e=>{ const d=e.target.value.replace(/\D/g,""); setAmountPaid(d?formatRupiah(Number(d)):""); }} style={{ fontWeight:700 }} />
                   <div style={{ display:"flex", gap:6, marginTop:10, flexWrap:"wrap" }}>
                     <button className="btn" style={{ fontSize:12 }} onClick={()=>setAmountPaid(formatRupiah(total))}>Uang Pas</button>

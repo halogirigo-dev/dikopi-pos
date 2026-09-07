@@ -1,0 +1,561 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-07T01:42:24.742354+00:00",
+  "title": "Design System: DIKOPI",
+  "extensions": {
+    "colorMeta": {
+      "charcoal": {
+        "role": "primary",
+        "displayName": "Charcoal",
+        "canonical": "#1F2933",
+        "tonalRamp": [
+          "#0B1218",
+          "#141E26",
+          "#1F2933",
+          "#2F3A44",
+          "#46515C",
+          "#6B747E",
+          "#9AA0A7",
+          "#E5E3DE"
+        ]
+      },
+      "charcoal-hover": {
+        "role": "primary",
+        "displayName": "Charcoal Hover",
+        "canonical": "#111827",
+        "tonalRamp": [
+          "#070A13",
+          "#0F1420",
+          "#111827",
+          "#232A3A",
+          "#3A414F",
+          "#5A6170",
+          "#8B90A0",
+          "#E5E3DE"
+        ]
+      },
+      "cream": {
+        "role": "neutral",
+        "displayName": "Cream",
+        "canonical": "#F7F6F2",
+        "tonalRamp": [
+          "#CFCBC2",
+          "#DDD9D1",
+          "#EAE7E0",
+          "#F2F1ED",
+          "#F7F6F2",
+          "#FBFAF7",
+          "#FDFDFB",
+          "#FFFFFF"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Surface White",
+        "canonical": "#FFFFFF",
+        "tonalRamp": [
+          "#E5E3DE",
+          "#F2F1ED",
+          "#F7F6F2",
+          "#FAFAF8",
+          "#FFFFFF",
+          "#FFFFFF",
+          "#FFFFFF",
+          "#FFFFFF"
+        ]
+      },
+      "surface-2": {
+        "role": "neutral",
+        "displayName": "Surface Warm Gray",
+        "canonical": "#F2F1ED",
+        "tonalRamp": [
+          "#CFCBC2",
+          "#DDD9D1",
+          "#EAE7E0",
+          "#F2F1ED",
+          "#F7F6F2",
+          "#FBFAF7",
+          "#FFFFFF",
+          "#FFFFFF"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Border Warm Gray",
+        "canonical": "#E5E3DE",
+        "tonalRamp": [
+          "#B8B2A8",
+          "#C8C2B8",
+          "#DDD9D1",
+          "#E5E3DE",
+          "#EAE7E0",
+          "#F2F1ED",
+          "#F7F6F2",
+          "#FFFFFF"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#171717",
+        "tonalRamp": [
+          "#0A0A0A",
+          "#171717",
+          "#2B2B2B",
+          "#454545",
+          "#6B6B6B",
+          "#9A9A9A",
+          "#C2C2C2",
+          "#F2F1ED"
+        ]
+      },
+      "ink-soft": {
+        "role": "neutral",
+        "displayName": "Ink Soft",
+        "canonical": "#6B6B6B",
+        "tonalRamp": [
+          "#171717",
+          "#2B2B2B",
+          "#454545",
+          "#6B6B6B",
+          "#8A8A8A",
+          "#9A9A9A",
+          "#C2C2C2",
+          "#E5E3DE"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted",
+        "canonical": "#9A9A9A",
+        "tonalRamp": [
+          "#454545",
+          "#6B6B6B",
+          "#8A8A8A",
+          "#9A9A9A",
+          "#B0B0B0",
+          "#C2C2C2",
+          "#DDD9D1",
+          "#F2F1ED"
+        ]
+      },
+      "terracotta": {
+        "role": "accent",
+        "displayName": "Terracotta",
+        "canonical": "#A66A3F",
+        "tonalRamp": [
+          "#5A3420",
+          "#7A4A2E",
+          "#A66A3F",
+          "#C48A5A",
+          "#D9A97A",
+          "#E6C2A3",
+          "#F4E9E0",
+          "#FDF6F0"
+        ]
+      },
+      "terracotta-soft": {
+        "role": "accent",
+        "displayName": "Terracotta Soft",
+        "canonical": "#F4E9E0",
+        "tonalRamp": [
+          "#D9A97A",
+          "#E6C2A3",
+          "#F4E9E0",
+          "#FDF6F0",
+          "#FFF9F4",
+          "#FFFFFF",
+          "#FFFFFF",
+          "#FFFFFF"
+        ]
+      },
+      "green": {
+        "role": "success",
+        "displayName": "Green",
+        "canonical": "#16803C",
+        "tonalRamp": [
+          "#0F4D25",
+          "#116830",
+          "#16803C",
+          "#22A344",
+          "#4CC06A",
+          "#8FD9A3",
+          "#EAF6ED",
+          "#F6FBF7"
+        ]
+      },
+      "green-soft": {
+        "role": "success",
+        "displayName": "Green Soft",
+        "canonical": "#EAF6ED",
+        "tonalRamp": [
+          "#8FD9A3",
+          "#C2E9CC",
+          "#EAF6ED",
+          "#F6FBF7",
+          "#FFFFFF",
+          "#FFFFFF",
+          "#FFFFFF",
+          "#FFFFFF"
+        ]
+      },
+      "red": {
+        "role": "danger",
+        "displayName": "Red",
+        "canonical": "#D92D20",
+        "tonalRamp": [
+          "#7A1A14",
+          "#A81F16",
+          "#D92D20",
+          "#E85A4A",
+          "#F08A80",
+          "#F8B8B2",
+          "#FDECEC",
+          "#FFF5F5"
+        ]
+      },
+      "red-soft": {
+        "role": "danger",
+        "displayName": "Red Soft",
+        "canonical": "#FDECEC",
+        "tonalRamp": [
+          "#F08A80",
+          "#F8B8B2",
+          "#FDECEC",
+          "#FFF5F5",
+          "#FFFFFF",
+          "#FFFFFF",
+          "#FFFFFF",
+          "#FFFFFF"
+        ]
+      },
+      "warning": {
+        "role": "warning",
+        "displayName": "Warning",
+        "canonical": "#B7791F",
+        "tonalRamp": [
+          "#6B460F",
+          "#8A5A18",
+          "#B7791F",
+          "#D49A2B",
+          "#E8B84A",
+          "#F0CC7A",
+          "#FFF7E5",
+          "#FFFBEB"
+        ]
+      },
+      "warning-soft": {
+        "role": "warning",
+        "displayName": "Warning Soft",
+        "canonical": "#FFF7E5",
+        "tonalRamp": [
+          "#E8B84A",
+          "#F0CC7A",
+          "#FFF7E5",
+          "#FFFBEB",
+          "#FFFFFF",
+          "#FFFFFF",
+          "#FFFFFF",
+          "#FFFFFF"
+        ]
+      },
+      "info": {
+        "role": "info",
+        "displayName": "Info",
+        "canonical": "#2563EB",
+        "tonalRamp": [
+          "#1A3A8A",
+          "#1E4AB8",
+          "#2563EB",
+          "#4A7DEB",
+          "#7AA0F0",
+          "#B2C6F8",
+          "#EFF6FF",
+          "#F8FAFF"
+        ]
+      },
+      "info-soft": {
+        "role": "info",
+        "displayName": "Info Soft",
+        "canonical": "#EFF6FF",
+        "tonalRamp": [
+          "#7AA0F0",
+          "#B2C6F8",
+          "#EFF6FF",
+          "#F8FAFF",
+          "#FFFFFF",
+          "#FFFFFF",
+          "#FFFFFF",
+          "#FFFFFF"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Hero stock qty (28/800) and POS total — max 1 per viewport, tabular numerals."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page greeting Halo — 24/800 -0.03em, warm counter voice."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Card and sheet heads — 18/700, section anchors."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Default UI 14/400 1.43, max ~65ch, operational reading."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Eyebrows BIAYA RESTOCK / STOCK NEEDING ATTENTION — 11/700 .07em uppercase."
+      }
+    },
+    "shadows": [
+      {
+        "name": "card-ambient",
+        "value": "0 1px 3px rgba(0,0,0,0.06)",
+        "purpose": "Default on .card and active segment pill — ambient, not structural. Used sparingly."
+      },
+      {
+        "name": "topbar-blur",
+        "value": "backdrop-filter: blur(8px) + rgba(255,255,255,0.95)",
+        "purpose": "Sticky topbar separation only — the single allowed blur."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-standard",
+        "value": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "Default state transitions (hover, focus, bar width .4s)."
+      },
+      {
+        "name": "bar-transition",
+        "value": "width .4s ease",
+        "purpose": "Stock bar fill animates width — flagged by detector but intentional for ops feedback."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "xs",
+        "value": "390px"
+      },
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "901px"
+      },
+      {
+        "name": "xl",
+        "value": "1024px"
+      },
+      {
+        "name": "2xl",
+        "value": "1440px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Button Primary",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Primary charcoal action — default across POS, inventory, forms.",
+      "html": "<button class=\"ds-btn-primary\">Simpan</button>",
+      "css": ".ds-btn-primary{background:#1F2933;color:#FFFFFF;border:1px solid #1F2933;border-radius:12px;padding:10px 14px;min-height:44px;font-family:Inter,ui-sans-serif,system-ui,sans-serif;font-weight:600;font-size:14px;display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;transition:background .2s ease} .ds-btn-primary:hover{background:#111827} .ds-btn-primary:focus-visible{outline:none;border-color:#A66A3F;box-shadow:0 0 0 3px #F4E9E0}"
+    },
+    {
+      "name": "Button Accent",
+      "kind": "button",
+      "refersTo": "button-accent",
+      "description": "Terracotta accent for one restock/purchase CTA per card.",
+      "html": "<button class=\"ds-btn-accent\">Restock</button>",
+      "css": ".ds-btn-accent{background:#A66A3F;color:#FFFFFF;border:1px solid #A66A3F;border-radius:12px;padding:10px 14px;min-height:44px;font-family:Inter,ui-sans-serif,system-ui,sans-serif;font-weight:600;font-size:14px;display:inline-flex;align-items:center;justify-content:center} .ds-btn-accent:hover{background:#8F5A35} .ds-btn-accent:focus-visible{box-shadow:0 0 0 3px #F4E9E0}"
+    },
+    {
+      "name": "Button Ghost",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Ghost white — secondary Detail, cancel.",
+      "html": "<button class=\"ds-btn-ghost\">Detail</button>",
+      "css": ".ds-btn-ghost{background:#FFFFFF;color:#171717;border:1px solid #E5E3DE;border-radius:12px;padding:10px 14px;min-height:44px;font-weight:600;font-size:14px;display:inline-flex;align-items:center;justify-content:center} .ds-btn-ghost:hover{background:#F2F1ED}"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Default 16px white container with 1px border and ambient shadow.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-head\">Ringkasan bisnis hari ini</div><div class=\"ds-card-body\">Stock content</div></div>",
+      "css": ".ds-card{background:#FFFFFF;border:1px solid #E5E3DE;border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,.06);padding:16px} .ds-card-head{padding:16px;border-bottom:1px solid #E5E3DE;display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:14px}"
+    },
+    {
+      "name": "Card Compact",
+      "kind": "card",
+      "refersTo": "card-compact",
+      "description": "Inventory stock card — 14px pad, gap10, integrated surface2 row.",
+      "html": "<div class=\"ds-card-compact\"><div class=\"ds-card-title\">Espresso Beans</div><div class=\"ds-hero\">1.2 kg</div><div class=\"ds-bar\"></div><div class=\"ds-row\">~12 hari lagi — Rp 180.000</div></div>",
+      "css": ".ds-card-compact{background:#FFFFFF;border:1px solid #E5E3DE;border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,.06);padding:14px;display:grid;gap:10px} .ds-card-title{font-size:14px;font-weight:700;line-height:1.25} .ds-hero{font-size:28px;font-weight:800;letter-spacing:-0.03em;line-height:1} .ds-bar{height:6px;background:#E5E3DE;border-radius:999px;overflow:hidden} .ds-row{background:#F2F1ED;border-radius:12px;padding:10px 12px;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}"
+    },
+    {
+      "name": "Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Text field — 12px radius, 48px touch, terracotta focus ring.",
+      "html": "<input class=\"ds-input\" placeholder=\"Cari bahan / SKU...\" />",
+      "css": ".ds-input{border:1px solid #E5E3DE;background:#FFFFFF;border-radius:12px;padding:12px 14px;min-height:48px;font-size:14px;width:100%;outline:none} .ds-input:focus{border-color:#A66A3F;box-shadow:0 0 0 3px #F4E9E0}"
+    },
+    {
+      "name": "Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Status pill — green/warning/red/info soft pairs.",
+      "html": "<span class=\"ds-badge\">SAFE</span> <span class=\"ds-badge ds-badge--red\">CRITICAL</span>",
+      "css": ".ds-badge{padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;background:#EAF6ED;color:#16803C;display:inline-flex;align-items:center} .ds-badge--red{background:#FDECEC;color:#D92D20} .ds-badge--warn{background:#FFF7E5;color:#B7791F}"
+    },
+    {
+      "name": "Category Chip",
+      "kind": "chip",
+      "refersTo": "chip-cat",
+      "description": "Filter cat bar pill — white at rest, charcoal active.",
+      "html": "<button class=\"ds-cat\">All</button> <button class=\"ds-cat ds-cat--active\">Kopi</button>",
+      "css": ".ds-cat{white-space:nowrap;border:1px solid #E5E3DE;background:#FFFFFF;border-radius:999px;padding:8px 14px;font-size:13px;font-weight:500;min-height:36px} .ds-cat--active{background:#1F2933;color:#FFFFFF;border-color:#1F2933}"
+    },
+    {
+      "name": "Segment",
+      "kind": "custom",
+      "refersTo": "segment",
+      "description": "Segmented control — surface2 track, white active pill with shadow.",
+      "html": "<div class=\"ds-segment\"><button>Stok</button><button class=\"active\">Kelola</button></div>",
+      "css": ".ds-segment{display:flex;background:#F2F1ED;border-radius:999px;padding:3px;gap:3px} .ds-segment button{flex:1;border:0;background:transparent;padding:8px 12px;border-radius:999px;font-size:13px;font-weight:600;color:#9A9A9A} .ds-segment button.active{background:#FFFFFF;color:#171717;box-shadow:0 1px 3px rgba(0,0,0,.06)}"
+    },
+    {
+      "name": "Navigation Sidebar",
+      "kind": "nav",
+      "refersTo": "card",
+      "description": "Desktop sidebar — 236px fixed, terracotta-soft active.",
+      "html": "<nav class=\"ds-sidebar\"><div class=\"ds-logo\">DI<span>KOPI</span></div><button class=\"active\">Dashboard</button></nav>",
+      "css": ".ds-sidebar{width:236px;background:#FFFFFF;border-right:1px solid #E5E3DE;padding:22px 14px} .ds-logo{font-size:22px;font-weight:800;letter-spacing:-0.04em;padding:0 12px 28px} .ds-logo span{color:#A66A3F} .ds-sidebar button{display:flex;width:100%;border:0;background:transparent;padding:10px 12px;border-radius:8px;color:#666;gap:11px;font-size:13px} .ds-sidebar button.active{background:#F4E9E0;color:#A66A3F;font-weight:650}"
+    },
+    {
+      "name": "Bottom Nav",
+      "kind": "nav",
+      "refersTo": "card",
+      "description": "Mobile bottom nav — fixed, 44px items, terracotta active.",
+      "html": "<nav class=\"ds-bottom-nav\"><a class=\"active\">POS</a><a class=\"pos-cta\">Bayar</a></nav>",
+      "css": ".ds-bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#FFFFFF;border-top:1px solid #E5E3DE;display:flex;justify-content:space-around;padding:6px 0;z-index:40} .ds-bottom-nav a{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 4px;color:#9A9A9A;font-size:10px;font-weight:600;min-height:44px;justify-content:center;text-decoration:none} .ds-bottom-nav a.active{color:#A66A3F} .pos-cta{background:#1F2933;color:#fff;border-radius:16px;padding:8px 14px;min-height:36px}"
+    },
+    {
+      "name": "Empty State",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "Empty inventory/products/expenses — 56 circle, 14/800 title, 12/16 muted desc, accent-soft hint, accent action.",
+      "html": "<div class=\"ds-empty\"><div class=\"ds-empty-icon\">☕</div><div class=\"ds-empty-title\">Belum ada produk</div><div class=\"ds-empty-desc\">Tambahkan menu cafe kamu agar bisa mulai transaksi di POS.</div><div class=\"ds-empty-hint\">Contoh: Es Kopi Susu — Harga 18.000, HPP 6.000</div><button class=\"ds-btn-accent\">+ Tambah Produk</button></div>",
+      "css": ".ds-empty{background:#FFFFFF;border:1px solid #E5E3DE;border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,.06);padding:20px;text-align:center} .ds-empty-icon{width:56px;height:56px;border-radius:50%;background:#F2F1ED;display:grid;place-items:center;font-size:24px;margin:0 auto 12px} .ds-empty-title{font-weight:800;font-size:14px} .ds-empty-desc{color:#6B6B6B;font-size:12px;line-height:16px;margin-top:6px;max-width:320px;margin-left:auto;margin-right:auto} .ds-empty-hint{background:#F4E9E0;color:#A66A3F;font-size:12px;padding:8px 12px;border-radius:10px;margin-top:12px} .ds-empty .ds-btn-accent{width:100%;margin-top:14px;min-height:44px}"
+    },
+    {
+      "name": "Toast Success",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "POS success — 64 green-soft circle check, 18/800 title, 24/800 total, muted meta, primary Selesai.",
+      "html": "<div class=\"ds-toast-success\"><div class=\"ds-toast-icon\">✓</div><div class=\"ds-toast-title\">Transaksi Berhasil</div><div class=\"ds-toast-total\">Rp 54.000</div><div class=\"ds-toast-meta\">CASH • INV-20260907-001</div><button class=\"ds-btn-primary\">Selesai</button></div>",
+      "css": ".ds-toast-success{background:#FFFFFF;border:1px solid #E5E3DE;border-radius:24px 24px 0 0;padding:24px;text-align:center;max-width:420px} .ds-toast-icon{width:64px;height:64px;border-radius:50%;background:#EAF6ED;color:#16803C;display:grid;place-items:center;font-size:28px;margin:0 auto 12px} .ds-toast-title{font-size:18px;font-weight:800;margin:0} .ds-toast-total{font-size:24px;font-weight:800;margin-top:8px} .ds-toast-meta{color:#9A9A9A;margin-top:4px;font-size:12px} .ds-toast-success .ds-btn-primary{width:100%;margin-top:20px;min-height:48px}"
+    },
+    {
+      "name": "Confirmation Dialog",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "Destructive confirm — bottom-sheet 44px ghost + accent/red, handle, not window.confirm.",
+      "html": "<div class=\"ds-sheet\"><div class=\"ds-sheet-handle\"></div><div class=\"ds-sheet-title\">Hapus produk?</div><div class=\"ds-sheet-desc\">Tindakan ini tidak dapat dibatalkan.</div><div class=\"ds-sheet-actions\"><button class=\"ds-btn-ghost\">Batal</button><button class=\"ds-btn-danger\">Hapus</button></div></div>",
+      "css": ".ds-sheet{background:#FFFFFF;border-radius:24px 24px 0 0;max-height:85vh;display:flex;flex-direction:column;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.06)} .ds-sheet-handle{width:36px;height:4px;background:#E5E3DE;border-radius:999px;margin:0 auto 12px} .ds-sheet-title{font-size:16px;font-weight:700} .ds-sheet-desc{font-size:13px;color:#6B6B6B;margin-top:6px} .ds-sheet-actions{display:flex;gap:8px;margin-top:16px} .ds-sheet-actions .ds-btn-ghost{flex:1;min-height:44px} .ds-btn-danger{background:#D92D20;color:#FFFFFF;border:1px solid #D92D20;border-radius:12px;padding:10px 14px;min-height:44px;font-weight:600;flex:1} .ds-btn-danger:hover{background:#B91C12}"
+    },
+    {
+      "name": "Loading Skeleton",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "Card-shaped pulse skeleton matching final layout — no spinners.",
+      "html": "<div class=\"ds-skeleton\"><div class=\"ds-s-card\" style=\"height:120px\"></div><div class=\"ds-s-grid\"><div class=\"ds-s-card\" style=\"height:96px\"></div><div class=\"ds-s-card\" style=\"height:96px\"></div></div></div>",
+      "css": ".ds-skeleton{display:grid;gap:12px;animation:ds-pulse 1.2s infinite} @keyframes ds-pulse{0%{opacity:1}50%{opacity:.6}100%{opacity:1}} .ds-s-card{background:#FFFFFF;border:1px solid #E5E3DE;border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,.06)} .ds-s-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}"
+    },
+    {
+      "name": "Error State",
+      "kind": "custom",
+      "refersTo": "input",
+      "description": "Field error — red text under input + red border, card-level critical not full wash.",
+      "html": "<div style=\"display:grid;gap:6px\"><label class=\"ds-field-label\">Nama</label><input class=\"ds-input ds-input--error\" value=\"\" placeholder=\"Espresso\" /><div class=\"ds-error\">Nama wajib</div></div>",
+      "css": ".ds-input--error{border-color:#D92D20 !important;box-shadow:0 0 0 3px #FDECEC !important} .ds-error{color:#D92D20;font-size:12px;margin-top:4px} .ds-field-label{font-size:11px;color:#6B6B6B;font-weight:650}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Warm Counter",
+    "overview": "DIKOPI lives at the warm counter where light falls on cream paper, charcoal ink, and a single terracotta accent. It is a hospitality-ops system, not a marketing site: the aesthetic is warm minimal, precise, and scannable, built for a small Indonesian coffee shop to sell fast and know true cost. Every surface is mobile-first and thumb-ready, then expands to desktop — never the reverse. The world rejects neon, gradients, glass, and brochure hype; its richness comes from tonal layering, confident type hierarchy, and careful stock-runway storytelling.\n\nSurfaces share a calm ground (cream), white containers, and thin warm-gray borders. Accent appears sparingly to signal action or attention, never as decoration. Info lives in dense-but-legible stacks with generous separation, so a manager can answer “how much, is it safe, how long, when to restock, at what cost” within 3 seconds on a phone.",
+    "keyCharacteristics": [
+      "Warm minimal hospitality — cream ground, charcoal ink, terracotta accent, white surfaces",
+      "Mobile-first, thumb-ready — bottom nav + bottom sheets on phone, 236px sidebar only ≥901px",
+      "Precise & scannable — 28px hero stock, 12/700 runway, single integrated restock row",
+      "Tonal depth, not shadow depth — flat at rest, 0 1px 3px only on cards",
+      "Confident & tactile components — 12-16px radius, 40-48px touch targets, solid fills, no glass"
+    ],
+    "rules": [
+      {
+        "name": "The One Warm Accent Rule",
+        "body": "Terracotta appears on ≤10% of any screen — one primary action or one status pill per card. If two terracotta buttons compete, one must become ghost.",
+        "section": "colors"
+      },
+      {
+        "name": "The Ground Rule",
+        "body": "Cream is ground only; containers are always white with 1px border. Never place cream on cream.",
+        "section": "colors"
+      },
+      {
+        "name": "The Weight-Does-Work Rule",
+        "body": "Hierarchy comes from 400→600→700→800 steps, not size alone. A new weight must earn a distinct role.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Numerals Rule",
+        "body": "Stock, money, and dates use tabular-nums to prevent layout shift on updates.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat-By-Default Rule",
+        "body": "Surfaces are flat at rest; tonal steps do 90% of the work. Shadow is a confirmation, not a construction.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Composition First Rule",
+        "body": "Do not introduce a new visual pattern when an existing v1 primitive composes the solution. Prefer composition of existing primitives over creation of new components. The v1 vocabulary is Buttons, Cards, Inputs, Chips, Segment, Badge, Stock Bar, Navigation, Bottom Sheet, Empty State, Toast/Success, Confirmation Dialog, Loading Skeleton, Error State. When in doubt, DESIGN.md + .impeccable/design.json are the source of truth.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "Do keep cream as page ground only — cards and sheets are always white with 1px warm-gray border.",
+      "Do use the status pill pattern: inline-flex gap5 padding4 8 radius999 bg {status}-soft color {status} + 6px dot — compact, not a left-border stripe.",
+      "Do make stock hero 28/800 -0.03em with target 11/600 var(--text2) beside it — answers \"how much?\" in 1s.",
+      "Do use the integrated var(--surface2) radius12 pad10 12 grid 1fr auto row for runway and cost.",
+      "Do keep touch targets ≥40px (44 preferred) — inventory card actions minHeight40, qty buttons 44x44 radius10.",
+      "Do keep the 6px bar (height6 #E5E3DE track + status bar fill) — thin, not 8-12px sparklines.",
+      "Do use tabular numerals for money/stock/percent.",
+      "Do keep one accent per card — if Restock is accent, Detail is ghost.",
+      "Do compose existing v1 primitives (card 16/14, btn 12/44, input 12/48, segment pill, badge pill, stock bar 6, empty-state 56 circle, toast 64 circle, sheet 24) before creating anything new."
+    ],
+    "donts": [
+      "Don't introduce a new visual pattern when an existing v1 primitive composes the solution — prefer composition over creation; DESIGN.md + .impeccable/design.json are the source of truth.",
+      "Don't use a colored border-left >1px on cards/list items — banned, use pill + bar instead.",
+      "Don't use gradient text, glass/blur (except topbar), or hard offset 4px 4px shadows — violates flat+tonal system.",
+      "Don't duplicate copy on the card — no % label next to bar, no repeating Target + BIAYA RESTOCK on separate lines.",
+      "Don't put SKU/avg-cost/min-stock on the card — move secondary to Detail sheet.",
+      "Don't use muted (#9A9A9A) for 11-14px body text — use var(--text2) #6B6B6B to keep ≥4.5:1; muted is for 10px uppercase labels only.",
+      "Don't introduce a new font family without replacing Inter system-wide — Inter is the sole display/body/label face.",
+      "Don't show neon/accent-soft hover glows beyond 0 0 0 3px var(--accent-soft) focus ring.",
+      "Don't render bottom-nav on desktop — display:none ≥901px is invariant; desktop uses sidebar."
+    ]
+  }
+}
