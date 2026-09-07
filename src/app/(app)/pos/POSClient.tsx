@@ -71,7 +71,7 @@ export default function POSClient({ categories, products }: { categories: Cat[];
   }
 
   return (
-    <div style={{ paddingBottom: 88 }}>
+    <div style={{ paddingBottom: cart.items.length>0 ? 140 : 88 }}>
       {/* Compact page header — Warm Counter, hierarchy: POS > count, Back de-emphasized */}
       <div style={{ display:"flex", alignItems:"flex-end", justifyContent:"space-between", gap:12, marginBottom:8 }}>
         <div style={{ minWidth:0 }}>
@@ -127,14 +127,13 @@ export default function POSClient({ categories, products }: { categories: Cat[];
       )}
       <div data-onboarding="pos-pay" style={{ height:1 }} />
 
-      {/* Transaction trigger — Bottom Sheet primitive, compact, not large panel */}
+      {/* Transaction trigger — Bottom Sheet primitive, strong context, not large panel */}
       {cart.items.length>0 && (
         <div data-onboarding="pos-cart" style={{ position:"fixed", bottom:64, left:12, right:12, zIndex:30 }}>
           <div className="card" style={{ padding:"10px 12px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, borderRadius:14 }}>
-            <div style={{ display:"flex", alignItems:"baseline", gap:6, minWidth:0 }}>
-              <span style={{ fontWeight:800, fontSize:14 }}>{count} item</span>
-              <span style={{ fontWeight:800, fontSize:14, fontVariantNumeric:"tabular-nums" as any }}>{formatRupiah(total)}</span>
-              <span style={{ fontSize:11, color:"var(--text2)", display:"none" } as any}></span>
+            <div style={{ minWidth:0, lineHeight:1.2 }}>
+              <div style={{ fontSize:10, fontWeight:800, letterSpacing:".06em", color:"var(--muted)" }}>{count} ITEM • KERANJANG</div>
+              <div style={{ fontWeight:800, fontSize:14, fontVariantNumeric:"tabular-nums" as any, marginTop:2, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{formatRupiah(total)}</div>
             </div>
             <button className="btn primary" style={{ minHeight:40, padding:"8px 16px", fontSize:13, fontWeight:700, borderRadius:10, flexShrink:0 }} onClick={()=>setShowCart(true)}>Lihat • Bayar</button>
           </div>
