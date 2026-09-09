@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
-export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("rounded-xl border bg-white shadow-sm", className)} {...props} />;
+
+export function Card({ className, interactive, ...props }: React.HTMLAttributes<HTMLDivElement> & { interactive?: boolean }) {
+  return <div className={cn("rounded-xl border bg-white shadow-sm", interactive && "card interactive cursor-pointer", !interactive && "card", className)} {...props} />;
 }
 export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return <div className={cn("p-4 pb-2", className)} {...props} />;

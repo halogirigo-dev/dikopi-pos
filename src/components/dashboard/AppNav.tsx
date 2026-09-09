@@ -16,18 +16,17 @@ export default function AppNav({ role, userName }: { role: string; userName: str
   const path = usePathname();
   const isCashier = role === "CASHIER";
 
-  // Cashier simplified sidebar
   if (isCashier) {
     return (
-      <aside className="sidebar">
+      <aside className="sidebar" aria-label="Main navigation">
         <div className="logo">DIK<span>O</span>PI</div>
         <div className="section">SALES</div>
         <div className="nav">
-          <Link href="/pos" prefetch data-onboarding="nav-pos" className={path.startsWith("/pos") ? "active" : ""} style={{ display: "flex", width: "100%", textDecoration: "none" }}>
-            <button className={path.startsWith("/pos") ? "active" : ""} style={{ width: "100%" }}><span className="ico">＋</span><span>POS</span></button>
+          <Link href="/pos" prefetch data-onboarding="nav-pos" className={path.startsWith("/pos") ? "active" : ""} aria-current={path.startsWith("/pos") ? "page" : undefined}>
+            <span className="ico">＋</span><span>POS</span>
           </Link>
-          <Link href="/transactions" prefetch data-onboarding="nav-transactions" className={path.startsWith("/transactions") ? "active" : ""} style={{ display: "flex", width: "100%", textDecoration: "none" }}>
-            <button className={path.startsWith("/transactions") ? "active" : ""} style={{ width: "100%" }}><span className="ico">▤</span><span>Transactions</span></button>
+          <Link href="/transactions" prefetch data-onboarding="nav-transactions" className={path.startsWith("/transactions") ? "active" : ""} aria-current={path.startsWith("/transactions") ? "page" : undefined}>
+            <span className="ico">▤</span><span>Transactions</span>
           </Link>
         </div>
         <div className="profile"><div className="avatar">{userName[0]?.toUpperCase()}</div><div><b style={{ fontSize: 12 }}>{userName}</b><div style={{ fontSize: 10, color: "#999" }}>Cashier</div></div><button onClick={() => signOut({ callbackUrl: "/login" })} className="btn" style={{ marginLeft: "auto", padding: "6px 8px", fontSize: 11 }}>Logout</button></div>
@@ -47,7 +46,7 @@ export default function AppNav({ role, userName }: { role: string; userName: str
     Products: "nav-products",
   };
   return (
-    <aside className="sidebar">
+    <aside className="sidebar" aria-label="Main navigation">
       <div className="logo">DIK<span>O</span>PI</div>
       {nav.map((g) => (
         <div key={g.section}>
@@ -55,13 +54,13 @@ export default function AppNav({ role, userName }: { role: string; userName: str
           <div className="nav">
             {g.items.map((it) => {
               const active = path === it.href || path.startsWith((it as any).match || it.href + "/") || (it.href === "/dashboard" && path === "/dashboard");
-              // handle reports?view special: highlight Product Performance when ?view=products
               const isProductPerf = it.label === "Product Performance";
               const activePerf = isProductPerf && typeof window !== "undefined" && window.location.search.includes("view=products") && path.startsWith("/reports");
               const navAttr = onboardingMap[it.label];
+              const isActive = Boolean(active || activePerf);
               return (
-                <Link key={it.href} href={it.href} prefetch data-onboarding={navAttr} style={{ textDecoration: "none" }}>
-                  <button className={active || activePerf ? "active" : ""}><span className="ico">{it.ico}</span><span>{it.label}</span></button>
+                <Link key={it.href} href={it.href} prefetch data-onboarding={navAttr} className={isActive ? "active" : ""} aria-current={isActive ? "page" : undefined}>
+                  <span className="ico">{it.ico}</span><span>{it.label}</span>
                 </Link>
               );
             })}

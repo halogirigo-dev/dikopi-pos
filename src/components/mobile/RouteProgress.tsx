@@ -15,6 +15,11 @@ export default function RouteProgress() {
 
   if (!loading) return null;
   return (
-    <div style={{ position: "fixed", top: 0, left: 0, right: 0, height: 2, background: "var(--accent)", zIndex: 99, animation: "prog 0.4s ease" }} />
+    <div
+      className="route-progress"
+      style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 99 }}
+      role="progressbar"
+      aria-label="Loading"
+    />
   );
 }

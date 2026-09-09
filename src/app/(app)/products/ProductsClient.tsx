@@ -17,6 +17,7 @@ export default function ProductsClient({ categories, products: initial }: { cate
   const [showCalc, setShowCalc] = useState(false);
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [inventoryItems, setInventoryItems] = useState<any[]>([]);
   const [recipeMap, setRecipeMap] = useState<Record<string, any[]>>({});
   const [recipeFor, setRecipeFor] = useState<string | null>(null);
@@ -66,10 +67,13 @@ export default function ProductsClient({ categories, products: initial }: { cate
   }
   async function submit(){
     setError(""); if(!form.name.trim()) return setError("Nama wajib"); if(!form.category_id) return setError("Kategori wajib"); if(!form.selling_price||Number(form.selling_price)<=0) return setError("Harga jual >0");
-    const payload={ name:form.name.trim(), category_id:form.category_id, selling_price:Number(form.selling_price), cost_price:Number(form.cost_price), hpp_breakdown:breakdown.length?breakdown.map(b=>({name:b.name,cost:Number(b.cost)})):null, image_url:form.image_url.trim()||null, is_available:form.is_available };
-    const url=editing?`/api/products/${editing.id}`:"/api/products";
-    const res=await fetch(url,{method:editing?"PUT":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
-    if(res.ok) location.reload(); else setError(await res.text());
+    setSubmitting(true);
+    try{
+      const payload={ name:form.name.trim(), category_id:form.category_id, selling_price:Number(form.selling_price), cost_price:Number(form.cost_price), hpp_breakdown:breakdown.length?breakdown.map(b=>({name:b.name,cost:Number(b.cost)})):null, image_url:form.image_url.trim()||null, is_available:form.is_available };
+      const url=editing?`/api/products/${editing.id}`:"/api/products";
+      const res=await fetch(url,{method:editing?"PUT":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+      if(res.ok) location.reload(); else setError(await res.text());
+    } finally{ setSubmitting(false); }
   }
   async function del(id:string){ if(!confirm("Hapus produk?")) return; await fetch(`/api/products/${id}`,{method:"DELETE"}); location.reload(); }
 
@@ -141,9 +145,9 @@ export default function ProductsClient({ categories, products: initial }: { cate
 
       {showForm && (
         <div
+          className="modal-overlay"
           style={{
-            position:"fixed", inset:0, background:"rgba(0,0,0,.45)", zIndex:50,
-            display:"flex", alignItems:"flex-start", justifyContent:"center",
+            alignItems:"flex-start",
             padding:"16px", paddingTop:"max(16px, env(safe-area-inset-top))",
             paddingBottom:"max(16px, env(safe-area-inset-bottom))",
             overflowY:"auto"
@@ -151,7 +155,7 @@ export default function ProductsClient({ categories, products: initial }: { cate
           onClick={()=>setShowForm(false)}
         >
           <div
-            className="card"
+            className="card modal-card"
             style={{
               width:"100%", maxWidth:520, margin:"auto",
               maxHeight:"min(92vh, 720px)", overflowY:"auto",
@@ -188,15 +192,17 @@ export default function ProductsClient({ categories, products: initial }: { cate
                   </div>
                 )}
               </div>
-              {error && <div className="full" style={{ background:"var(--red-soft)", color:"var(--red)", border:"1px solid #f5c6c6", borderRadius:10, padding:"10px 12px", fontSize:12, lineHeight:"16px" }}>{error}</div>}
-              <div className="full" style={{ display:"flex", gap:8, marginTop:4 }}><button className="btn accent" style={{ flex:1, minHeight:48 }} onClick={submit}>{editing?"Simpan":"Tambah"}</button><button className="btn" style={{ flex:1, minHeight:48 }} onClick={()=>setShowForm(false)}>Batal</button></div>
+              <div className="full" style={{ minHeight: error ? "auto" : 0 }}>
+                {error && <div style={{ background:"var(--red-soft)", color:"var(--red)", border:"1px solid #f5c6c6", borderRadius:10, padding:"10px 12px", fontSize:12, lineHeight:"16px", animation:"dikopi-enter var(--duration-base) var(--ease-out) both" }}>{error}</div>}
+              </div>
+              <div className="full" style={{ display:"flex", gap:8, marginTop:4 }}><button className="btn accent" style={{ flex:1, minHeight:48 }} onClick={submit} disabled={submitting} aria-busy={submitting}>{submitting && <span className="spinner spinner-sm" aria-hidden />}{editing?"Simpan":"Tambah"}</button><button className="btn" style={{ flex:1, minHeight:48 }} onClick={()=>setShowForm(false)} disabled={submitting}>Batal</button></div>
             </div>
           </div>
         </div>
       )}
       {recipeFor && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.45)", zIndex:50, display:"grid", placeItems:"center", padding:16 }} onClick={()=>setRecipeFor(null)}>
-          <div className="card" style={{ padding:16, width:"100%", maxWidth:520, maxHeight:"90vh", overflowY:"auto" }} onClick={e=>e.stopPropagation()}>
+        <div className="modal-overlay" onClick={()=>setRecipeFor(null)}>
+          <div className="card modal-card" style={{ padding:16, width:"100%", maxWidth:520, maxHeight:"90vh", overflowY:"auto" }} onClick={e=>e.stopPropagation()}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
               <h3 style={{ margin:0, fontSize:14, fontWeight:800 }}>Recipe — {initial.find(x=>x.id===recipeFor)?.name}</h3>
               <button className="btn" style={{ minHeight:36, padding:"6px 10px" }} onClick={()=>setRecipeFor(null)}>✕</button>
