@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { formatRupiah } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import { Segment } from "@/components/ui/segment";
 
 // Client-side helpers mirroring server getStockStatusMeta — do not duplicate thresholds
 function statusMeta(s: string) {
@@ -291,13 +292,18 @@ export default function InventoryClient({ initialOverview, products, windowDays 
 
   return (
     <div style={{ display: "grid", gap: 12, paddingBottom: 24 }}>
-      {/* Tabs */}
-      <div className="segment" style={{ maxWidth: 520 }}>
-        <button className={tab === "overview" ? "active" : ""} onClick={() => setTab("overview")}>Stok</button>
-        <button className={tab === "items" ? "active" : ""} onClick={() => setTab("items")}>Kelola</button>
-        <button className={tab === "movements" ? "active" : ""} onClick={() => setTab("movements")}>Riwayat</button>
-        <button className={tab === "recipes" ? "active" : ""} onClick={() => setTab("recipes")}>Resep</button>
-      </div>
+      {/* Tabs — single glass bubble shared layout */}
+      <Segment
+        items={[
+          { id: "overview", label: "Stok" },
+          { id: "items", label: "Kelola" },
+          { id: "movements", label: "Riwayat" },
+          { id: "recipes", label: "Resep" },
+        ]}
+        active={tab}
+        onChange={(v) => setTab(v as any)}
+        style={{ maxWidth: 520 }}
+      />
 
       {/* Window selector */}
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
