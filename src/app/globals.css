@@ -14,6 +14,10 @@
   --duration-fast:120ms;
   --duration-base:200ms;
   --duration-emphasis:320ms;
+  --duration-card-enter:220ms;
+  --duration-card-exit:150ms;
+  --duration-card-hover:160ms;
+  --duration-card-press:100ms;
   --ease-out:cubic-bezier(0.16,1,0.3,1);
   --ease-in:cubic-bezier(0.4,0,1,1);
   --ease-in-out:cubic-bezier(0.4,0,0.2,1);
@@ -55,10 +59,18 @@ a{color:inherit;text-decoration:none}
 .page-title{font-size:18px;font-weight:700;line-height:24px}.date{font-size:12px;color:var(--muted);margin-top:2px}
 .actions{display:flex;gap:10px;align-items:center}
 
-/* Cards — stable, no float; interactive variants get subtle feedback */
-.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);transition:border-color var(--duration-base) var(--ease-out),box-shadow var(--duration-base) var(--ease-out),transform var(--duration-fast) var(--ease-out)}
-.card.interactive:hover{border-color:color-mix(in srgb,var(--border) 80%,var(--accent) 20%);box-shadow:0 4px 16px rgba(0,0,0,.06)}
-.card.interactive:active{transform:scale(0.995)}
+/* Cards — soft entrance, calm settle, tactile feedback (GPU: transform/opacity only) */
+.card:not(.modal-card){animation:card-enter var(--duration-card-enter) var(--ease-out) both;animation-delay:var(--stagger-delay,0ms);will-change:transform,opacity}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);transition:border-color var(--duration-card-hover) var(--ease-out),box-shadow var(--duration-card-hover) var(--ease-out),transform var(--duration-card-press) var(--ease-out)}
+.card.interactive:hover{border-color:color-mix(in srgb,var(--border) 80%,var(--accent) 20%);box-shadow:0 6px 20px rgba(0,0,0,.07);transform:translateY(-1px)}
+.card.interactive:active{transform:translateY(0) scale(0.99);transition-duration:var(--duration-card-press)}
+.card-exit{animation:card-exit var(--duration-card-exit) var(--ease-in) both !important}
+.card-enter{animation:card-enter var(--duration-card-enter) var(--ease-out) both;animation-delay:var(--stagger-delay,0ms)}
+.card[data-no-enter]{animation:none !important}
+/* Stagger via CSS — first cards usable immediately, max 90ms */
+.grid-kpi > *:nth-child(1){--stagger-delay:0ms}.grid-kpi > *:nth-child(2){--stagger-delay:30ms}.grid-kpi > *:nth-child(3){--stagger-delay:60ms}.grid-kpi > *:nth-child(4){--stagger-delay:90ms}.grid-kpi > *:nth-child(n+5){--stagger-delay:90ms}
+.products > *:nth-child(1){--stagger-delay:0ms}.products > *:nth-child(2){--stagger-delay:30ms}.products > *:nth-child(3){--stagger-delay:60ms}.products > *:nth-child(4){--stagger-delay:90ms}.products > *:nth-child(n+5){--stagger-delay:90ms}
+.mobile-product-cards > *:nth-child(1){--stagger-delay:0ms}.mobile-product-cards > *:nth-child(2){--stagger-delay:30ms}.mobile-product-cards > *:nth-child(3){--stagger-delay:60ms}.mobile-product-cards > *:nth-child(n+4){--stagger-delay:90ms}
 .card-head{padding:16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
 .card-title{font-size:14px;font-weight:700;line-height:20px}.muted{color:var(--muted);font-size:12px}
 .list{padding:4px 16px 12px}.list-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #eee;font-size:13px;gap:12px;transition:background var(--duration-fast) var(--ease-out)}
@@ -114,10 +126,11 @@ a{color:inherit;text-decoration:none}
 .cat:active{transform:scale(0.97)}
 .cat.active{background:var(--primary);color:#fff;border-color:var(--primary)}
 .cat:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.product{padding:0;overflow:hidden;border:1px solid var(--border);background:var(--surface);border-radius:16px;text-align:left;display:flex;flex-direction:column;transition:border-color var(--duration-base) var(--ease-out),box-shadow var(--duration-base) var(--ease-out),transform var(--duration-fast) var(--ease-out)}
-.product:hover{border-color:color-mix(in srgb,var(--border) 70%,var(--accent) 30%);box-shadow:0 4px 12px rgba(0,0,0,.05)}
-.product:active{transform:scale(0.985)}
+.product{padding:0;overflow:hidden;border:1px solid var(--border);background:var(--surface);border-radius:16px;text-align:left;display:flex;flex-direction:column;will-change:transform,opacity;animation:card-enter var(--duration-card-enter) var(--ease-out) both;animation-delay:var(--stagger-delay,0ms);transition:border-color var(--duration-card-hover) var(--ease-out),box-shadow var(--duration-card-hover) var(--ease-out),transform var(--duration-card-press) var(--ease-out)}
+.product:hover{border-color:color-mix(in srgb,var(--border) 70%,var(--accent) 30%);box-shadow:0 6px 16px rgba(0,0,0,.06);transform:translateY(-1px)}
+.product:active{transform:translateY(0) scale(0.99)}
 .product:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.product.card-exit{animation:card-exit var(--duration-card-exit) var(--ease-in) both !important}
 .prod-info{padding:14px;flex:1;display:flex;flex-direction:column;gap:2px}
 .prod-name{font-weight:600;font-size:13px;line-height:16px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .price{font-size:13px;font-weight:700;color:var(--text)}
@@ -220,12 +233,18 @@ a{color:inherit;text-decoration:none}
 @keyframes dikopi-progress{0%{transform:scaleX(0);opacity:1}60%{transform:scaleX(0.7)}100%{transform:scaleX(1);opacity:0}}
 @keyframes dikopi-spin{to{transform:rotate(360deg)}}
 @keyframes dikopi-bounce-subtle{0%,100%{transform:scale(1)}50%{transform:scale(1.02)}}
+@keyframes card-enter{from{opacity:0;transform:translateY(8px) scale(0.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes card-exit{from{opacity:1;transform:translateY(0) scale(1)}to{opacity:0;transform:translateY(-4px) scale(0.99)}}
 
-/* Reduced motion */
+/* Reduced motion — keep functionality, drop translate/scale, keep short opacity */
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation-duration:0.01ms !important;animation-iteration-count:1 !important;transition-duration:0.01ms !important;scroll-behavior:auto !important}
   .content{animation:none}
   .bottom-sheet,.modal-overlay{animation:none}
+  .card:not(.modal-card),.product{animation:card-enter-reduced 80ms ease-out both !important}
+  @keyframes card-enter-reduced{from{opacity:0}to{opacity:1}}
+  .card-exit,.product.card-exit{animation:card-exit-reduced 80ms ease-in both !important}
+  @keyframes card-exit-reduced{from{opacity:1}to{opacity:0}}
 }
 
 @layer base {
