@@ -73,12 +73,38 @@ export default function POSClient({ categories, products, productIdsWithRecipe =
   }
 
   return (
-    <div style={{ paddingBottom: cart.items.length>0 ? 140 : 88 }}>
+    <div className="pos-page">
+      <style>{`
+        .pos-page { padding-bottom: 88px; }
+        .pos-page.has-cart { padding-bottom: 140px; }
+        .pos-desktop-cart { display: none; }
+        .pos-mobile-bar { position:fixed; bottom:72px; left:12px; right:12px; z-index:30; }
+        @media(min-width:901px){
+          .pos-page { padding-bottom: 24px !important; }
+          .pos-mobile-bar { display:none !important; }
+          .pos-desktop-cart { display:flex !important; }
+          .pos-layout { align-items: start; gap: 20px; }
+        }
+        @media(max-width:900px){
+          .pos-layout { display:block !important; }
+        }
+        /* Desktop cart internal scroll */
+        .pos-desktop-cart { flex-direction:column; overflow:hidden; max-height: calc(100vh - 96px); }
+        .pos-desktop-cart .cart-scroll { overflow-y:auto; flex:1; min-height:0; scrollbar-width: thin; }
+        .pos-desktop-cart .cart-scroll::-webkit-scrollbar { width:6px; }
+        .pos-desktop-cart .cart-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius:999px; }
+        /* Make payment bottom-sheet centered on desktop */
+        @media(min-width:901px){
+          .bottom-sheet { align-items:center; justify-content:center; padding:24px; }
+          .bottom-sheet-card { border-radius:20px !important; max-width:480px; width:100%; max-height: 88vh; }
+        }
+      `}</style>
+
       {/* Compact page header — Warm Counter, hierarchy: POS > count, Back de-emphasized */}
-      <div style={{ display:"flex", alignItems:"flex-end", justifyContent:"space-between", gap:12, marginBottom:8 }}>
+      <div style={{ display:"flex", alignItems:"flex-end", justifyContent:"space-between", gap:12, marginBottom:12 }}>
         <div style={{ minWidth:0 }}>
           <h1 style={{ fontSize:18, fontWeight:800, letterSpacing:"-.03em", lineHeight:1, margin:0 }}>POS</h1>
-          <div style={{ fontSize:11, color:"var(--text2)", marginTop:4, fontWeight:500, letterSpacing:".01em" }}>{filtered.length} produk • {categories.length} kategori</div>
+          <div style={{ fontSize:11, color:"var(--text2)", marginTop:4, fontWeight:500, letterSpacing:".01em" }}>{filtered.length} produk • {categories.length} kategori • {count>0 ? `${count} di keranjang` : "siap jual"}</div>
         </div>
         <a href="/dashboard" style={{ fontSize:12, fontWeight:600, color:"var(--muted)", textDecoration:"none", padding:"6px 8px", flexShrink:0, lineHeight:1 }}>‹ Kembali</a>
       </div>
@@ -94,60 +120,124 @@ export default function POSClient({ categories, products, productIdsWithRecipe =
         ))}
       </div>
 
-      {/* Product grid — dense, 2-col, Card 14/16 primitive, tighter rhythm */}
-      <div className="products" data-onboarding="pos-products" style={{ gap:8 }}>
-        {filtered.map((p,i)=> {
-          const qty = cart.items.find(it=>it.product_id===p.id)?.quantity || 0;
-          const isAdded = qty > 0;
-          const hasRecipe = withRecipeSet.has(p.id);
-          return (
-          <div key={p.id} className="product" {...(i===0?{"data-onboarding":"pos-product"}:{})} style={{ background:"var(--surface)", border: hasRecipe ? "1px solid var(--border)" : "1px solid #FED7AA", borderRadius:16, overflow:"hidden", boxShadow:"var(--shadow)", opacity: hasRecipe ? 1 : 0.98 }}>
-            <div style={{ padding:12, flex:1, display:"flex", flexDirection:"column", gap:4 }}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:6 }}>
-                <div style={{ fontSize:10, fontWeight:700, letterSpacing:".06em", color:"var(--muted)", textTransform:"uppercase", lineHeight:1 }}>{p.category.name}</div>
-                {!hasRecipe && <span title="Recipe belum dikonfigurasi — stock tidak akan berkurang" style={{ fontSize:9, fontWeight:800, color:"#B45309", background:"#FEF3C7", border:"1px solid #FED7AA", padding:"2px 6px", borderRadius:999, letterSpacing:".04em", whiteSpace:"nowrap" }}>⚠ NO RECIPE</span>}
-              </div>
-              <div style={{ fontSize:14, fontWeight:700, lineHeight:"16px", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" as any, overflow:"hidden", minHeight:32 }}>{p.name}</div>
-              <div style={{ fontSize:14, fontWeight:800, color:"var(--text)", letterSpacing:"-.01em", fontVariantNumeric:"tabular-nums" as any, marginTop:2 }}>{formatRupiah(p.selling_price)}</div>
-              {!hasRecipe && <div style={{ fontSize:10, color:"#B45309", fontWeight:600, lineHeight:1.2, marginTop:2 }}>Stock TIDAK akan berkurang saat terjual</div>}
-              {isAdded ? (
-                <div style={{ marginTop:8, display:"flex", alignItems:"center", gap:6, background:"var(--surface2)", border:"1px solid var(--border)", borderRadius:12, padding:4 }}>
-                  <button aria-label="Kurangi" className="btn" style={{ width:36, height:36, minHeight:36, minWidth:36, padding:0, borderRadius:8, fontSize:16, flex:"0 0 36px", background:"var(--surface)" }} onClick={()=>cart.updateQty(p.id, qty-1)}>−</button>
-                  <span style={{ flex:1, textAlign:"center", fontWeight:800, fontSize:14, fontVariantNumeric:"tabular-nums" as any, minWidth:20 }}>{qty}</span>
-                  <button aria-label="Tambah" className="btn" style={{ width:36, height:36, minHeight:36, minWidth:36, padding:0, borderRadius:8, fontSize:16, flex:"0 0 36px", background:"var(--surface)" }} onClick={()=>cart.updateQty(p.id, qty+1)}>＋</button>
+      {/* POS layout: products left + sticky cart right (desktop) */}
+      <div className="pos pos-layout" style={{ gap:16 }}>
+        {/* LEFT: products */}
+        <div style={{ minWidth:0 }}>
+          <div className="products" data-onboarding="pos-products" style={{ gap:8 }}>
+            {filtered.map((p,i)=> {
+              const qty = cart.items.find(it=>it.product_id===p.id)?.quantity || 0;
+              const isAdded = qty > 0;
+              const hasRecipe = withRecipeSet.has(p.id);
+              return (
+              <div key={p.id} className="product" {...(i===0?{"data-onboarding":"pos-product"}:{})} style={{ background:"var(--surface)", border: hasRecipe ? "1px solid var(--border)" : "1px solid #FED7AA", borderRadius:16, overflow:"hidden", boxShadow:"var(--shadow)", opacity: hasRecipe ? 1 : 0.98 }}>
+                <div style={{ padding:12, flex:1, display:"flex", flexDirection:"column", gap:4 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:6 }}>
+                    <div style={{ fontSize:10, fontWeight:700, letterSpacing:".06em", color:"var(--muted)", textTransform:"uppercase", lineHeight:1 }}>{p.category.name}</div>
+                    {!hasRecipe && <span title="Recipe belum dikonfigurasi — stock tidak akan berkurang" style={{ fontSize:9, fontWeight:800, color:"#B45309", background:"#FEF3C7", border:"1px solid #FED7AA", padding:"2px 6px", borderRadius:999, letterSpacing:".04em", whiteSpace:"nowrap" }}>⚠ NO RECIPE</span>}
+                  </div>
+                  <div style={{ fontSize:14, fontWeight:700, lineHeight:"16px", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" as any, overflow:"hidden", minHeight:32 }}>{p.name}</div>
+                  <div style={{ fontSize:14, fontWeight:800, color:"var(--text)", letterSpacing:"-.01em", fontVariantNumeric:"tabular-nums" as any, marginTop:2 }}>{formatRupiah(p.selling_price)}</div>
+                  {!hasRecipe && <div style={{ fontSize:10, color:"#B45309", fontWeight:600, lineHeight:1.2, marginTop:2 }}>Stock TIDAK akan berkurang saat terjual</div>}
+                  {isAdded ? (
+                    <div style={{ marginTop:8, display:"flex", alignItems:"center", gap:6, background:"var(--surface2)", border:"1px solid var(--border)", borderRadius:12, padding:4 }}>
+                      <button aria-label="Kurangi" className="btn" style={{ width:36, height:36, minHeight:36, minWidth:36, padding:0, borderRadius:8, fontSize:16, flex:"0 0 36px", background:"var(--surface)" }} onClick={()=>cart.updateQty(p.id, qty-1)}>−</button>
+                      <span style={{ flex:1, textAlign:"center", fontWeight:800, fontSize:14, fontVariantNumeric:"tabular-nums" as any, minWidth:20 }}>{qty}</span>
+                      <button aria-label="Tambah" className="btn" style={{ width:36, height:36, minHeight:36, minWidth:36, padding:0, borderRadius:8, fontSize:16, flex:"0 0 36px", background:"var(--surface)" }} onClick={()=>cart.updateQty(p.id, qty+1)}>＋</button>
+                    </div>
+                  ) : (
+                    <button className="btn" style={{ marginTop:8, minHeight:40, padding:"8px 12px", fontSize:13, fontWeight:600, width:"100%", borderRadius:10 }} onClick={()=>cart.add({product_id:p.id,product_name:p.name,selling_price:p.selling_price,cost_price:p.cost_price,image_url:p.image_url})}>＋ Tambah</button>
+                  )}
                 </div>
-              ) : (
-                <button className="btn" style={{ marginTop:8, minHeight:40, padding:"8px 12px", fontSize:13, fontWeight:600, width:"100%", borderRadius:10 }} onClick={()=>cart.add({product_id:p.id,product_name:p.name,selling_price:p.selling_price,cost_price:p.cost_price,image_url:p.image_url})}>＋ Tambah</button>
-              )}
-            </div>
+              </div>
+            )})}
           </div>
-        )})}
-      </div>
-      {filtered.length===0 && <div className="card" style={{ padding:20, textAlign:"center", marginTop:10 }}><span className="muted" style={{ fontSize:13 }}>Tidak ada produk</span></div>}
+          {filtered.length===0 && <div className="card" style={{ padding:20, textAlign:"center", marginTop:10 }}><span className="muted" style={{ fontSize:13 }}>Tidak ada produk</span></div>}
 
-      {/* Empty cart hint — secondary, dashed, no heavy CTA */}
-      {cart.items.length===0 && (
-        <div data-onboarding="pos-cart" style={{ marginTop:10, border:"1px dashed var(--border)", borderRadius:12, padding:12, textAlign:"center", background:"var(--surface)" }}>
-          <div style={{ fontSize:13, fontWeight:600, color:"var(--text2)" }}>Keranjang kosong</div>
-          <div className="muted" style={{ fontSize:11, marginTop:2 }}>Tambah produk untuk melihat total</div>
+          {/* Empty cart hint — only on mobile or when left column empty, desktop has its own panel */}
+          {cart.items.length===0 && (
+            <div data-onboarding="pos-cart" className="pos-mobile-hint" style={{ marginTop:10, border:"1px dashed var(--border)", borderRadius:12, padding:12, textAlign:"center", background:"var(--surface)" }}>
+              <div style={{ fontSize:13, fontWeight:600, color:"var(--text2)" }}>Keranjang kosong</div>
+              <div className="muted" style={{ fontSize:11, marginTop:2 }}>Tambah produk untuk melihat total — keranjang tetap di samping (desktop) atau di bawah (HP)</div>
+            </div>
+          )}
+          <div data-onboarding="pos-pay" style={{ height:1 }} />
         </div>
-      )}
-      <div data-onboarding="pos-pay" style={{ height:1 }} />
 
-      {/* Transaction trigger — Bottom Sheet primitive, strong context, not large panel */}
+        {/* RIGHT: sticky cart — desktop only */}
+        <aside className="pos-desktop-cart cart card" style={{ position:"sticky", top:84, height:"fit-content" }}>
+          <div style={{ padding:"4px 0 12px", borderBottom:"1px solid var(--border)", display:"flex", justifyContent:"space-between", alignItems:"center", gap:8 }}>
+            <div>
+              <div style={{ fontSize:11, fontWeight:800, letterSpacing:".07em", color:"var(--muted)" }}>KERANJANG</div>
+              <div style={{ fontSize:13, fontWeight:700, marginTop:2 }}>{count>0 ? `${count} item • ${formatRupiah(total)}` : "Belum ada item"}</div>
+            </div>
+            {count>0 && <button className="btn" style={{ minHeight:32, padding:"6px 10px", fontSize:12 }} onClick={()=>cart.clear()}>Kosongkan</button>}
+          </div>
+
+          <div className="cart-scroll" style={{ padding:"8px 0" }}>
+            {cart.items.length===0 ? (
+              <div style={{ padding:"28px 12px", textAlign:"center", border:"1px dashed var(--border)", borderRadius:12, background:"var(--surface2)", marginTop:12 }}>
+                <div style={{ fontSize:13, fontWeight:700, color:"var(--text2)" }}>Keranjang kosong</div>
+                <div className="muted" style={{ fontSize:11, marginTop:4 }}>Pilih produk di kiri — tetap terlihat tanpa scroll</div>
+              </div>
+            ) : (
+              <div style={{ display:"grid", gap:0 }}>
+                {cart.items.map((it:any)=> {
+                  const hasR = withRecipeSet.has(it.product_id);
+                  return (
+                    <div key={it.product_id} style={{ display:"grid", gridTemplateColumns:"1fr auto", gap:10, padding:"10px 0", borderBottom:"1px solid var(--border)", alignItems:"center" }}>
+                      <div style={{ minWidth:0 }}>
+                        <div style={{ fontWeight:700, fontSize:13, lineHeight:1.2, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{it.product_name}</div>
+                        <div className="muted" style={{ fontSize:11, marginTop:2 }}>{formatRupiah(it.selling_price)} × {it.quantity} = <b style={{color:"var(--text)"}}>{formatRupiah(it.selling_price * it.quantity)}</b></div>
+                        {!hasR && <div style={{ fontSize:10, fontWeight:700, color:"#B45309", marginTop:2 }}>⚠ Stock tidak berkurang</div>}
+                      </div>
+                      <div className="qty" style={{ gap:6 }}>
+                        <button aria-label="Kurangi" onClick={()=>cart.updateQty(it.product_id,it.quantity-1)} style={{ width:32, height:32, fontSize:14 }}>−</button>
+                        <span style={{ minWidth:18, textAlign:"center", fontWeight:800, fontSize:13 }}>{it.quantity}</span>
+                        <button aria-label="Tambah" onClick={()=>cart.updateQty(it.product_id,it.quantity+1)} style={{ width:32, height:32, fontSize:14 }}>＋</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {cartWithoutRecipe.length>0 && cart.items.length>0 && (
+            <div style={{ background:"#FFF7E5", border:"1px solid #FED7AA", borderRadius:10, padding:"8px 10px", margin:"8px 0" }}>
+              <div style={{ fontSize:11, fontWeight:800, color:"#B45309" }}>⚠ {cartWithoutRecipe.length} tanpa recipe</div>
+              <div style={{ fontSize:11, color:"#92400E", marginTop:2, lineHeight:1.3 }}>{cartWithoutRecipe.map((it:any)=> it.product_name).join(", ")} — stock TIDAK berkurang.</div>
+            </div>
+          )}
+
+          <div style={{ borderTop:"1px solid var(--border)", paddingTop:12, marginTop:8, background:"var(--surface)", position:"sticky", bottom:0 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", gap:8 }}>
+              <span style={{ fontSize:11, fontWeight:800, letterSpacing:".06em", color:"var(--muted)" }}>TOTAL</span>
+              <span style={{ fontSize:18, fontWeight:800, letterSpacing:"-.02em", fontVariantNumeric:"tabular-nums" as any }}>{formatRupiah(total)}</span>
+            </div>
+            <button className="btn primary" style={{ width:"100%", minHeight:48, marginTop:10, fontSize:14, fontWeight:700, borderRadius:12 }} onClick={()=> setShowPayment(true)} disabled={count===0}>Bayar • {formatRupiah(total)}</button>
+            <div className="muted" style={{ fontSize:10, textAlign:"center", marginTop:6 }}>Keranjang tetap terlihat — tidak perlu scroll</div>
+          </div>
+        </aside>
+      </div>
+
+      {/* Mobile: fixed bottom bar — stay without scroll (hidden on desktop) */}
       {cart.items.length>0 && (
-        <div data-onboarding="pos-cart" style={{ position:"fixed", bottom:64, left:12, right:12, zIndex:30 }}>
-          <div className="card" style={{ padding:"10px 12px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, borderRadius:14 }}>
+        <div data-onboarding="pos-cart" className="pos-mobile-bar">
+          <div className="card" style={{ padding:"10px 12px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, borderRadius:14, border:"1px solid var(--border)", boxShadow:"0 8px 24px rgba(0,0,0,.12)" }}>
             <div style={{ minWidth:0, lineHeight:1.2 }}>
               <div style={{ fontSize:10, fontWeight:800, letterSpacing:".06em", color:"var(--muted)" }}>{count} ITEM • KERANJANG</div>
               <div style={{ fontWeight:800, fontSize:14, fontVariantNumeric:"tabular-nums" as any, marginTop:2, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{formatRupiah(total)}</div>
             </div>
-            <button className="btn primary" style={{ minHeight:40, padding:"8px 16px", fontSize:13, fontWeight:700, borderRadius:10, flexShrink:0 }} onClick={()=>setShowCart(true)}>Lihat • Bayar</button>
+            <div style={{ display:"flex", gap:8, flexShrink:0 }}>
+              <button className="btn" style={{ minHeight:40, padding:"8px 12px", fontSize:13, fontWeight:600, borderRadius:10, background:"var(--surface2)" }} onClick={()=>setShowCart(true)}>Lihat</button>
+              <button className="btn primary" style={{ minHeight:40, padding:"8px 16px", fontSize:13, fontWeight:700, borderRadius:10 }} onClick={()=>setShowPayment(true)}>Bayar</button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Bottom sheet cart detail */}
+      {/* Bottom sheet cart detail — mobile only (desktop uses sticky panel) */}
       {showCart && (
         <div className="bottom-sheet" onClick={()=>setShowCart(false)}>
           <div className="bottom-sheet-card" onClick={e=>e.stopPropagation()}>
