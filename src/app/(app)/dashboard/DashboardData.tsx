@@ -54,34 +54,37 @@ export default async function DashboardData({ period }: { period: string }) {
       )}
 
       <div data-onboarding="dash-chart" className="card" style={{ overflow:"hidden" }}>
-        <div className="card-head" style={{ borderBottom:"none", paddingBottom:8 }}><div className="card-title" style={{ fontSize:16, fontWeight:800 }}>Keuangan Hari Ini</div></div>
-        {/* 3 large highlight numbers — answer: money in / spent / left */}
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, padding:"0 16px 14px" }}>
-          <div style={{ background:"var(--surface2)", borderRadius:14, padding:"14px 12px" }}>
-            <div style={{ fontSize:11, fontWeight:700, color:"var(--muted)", letterSpacing:".06em" }}>OMSET</div>
-            <div style={{ fontSize:20, fontWeight:800, marginTop:4, letterSpacing:"-.02em", fontVariantNumeric:"tabular-nums" as any }}>{formatRupiah(kpi.revenue)}</div>
-            <div className="muted" style={{ fontSize:11, marginTop:2 }}>Uang masuk</div>
-          </div>
-          <div style={{ background:"var(--surface2)", borderRadius:14, padding:"14px 12px" }}>
-            <div style={{ fontSize:11, fontWeight:700, color:"var(--muted)", letterSpacing:".06em" }}>MODAL</div>
-            <div style={{ fontSize:20, fontWeight:800, marginTop:4, letterSpacing:"-.02em", fontVariantNumeric:"tabular-nums" as any }}>{formatRupiah(kpi.hpp)}</div>
-            <div className="muted" style={{ fontSize:11, marginTop:2 }}>Uang keluar</div>
-          </div>
-          <div style={{ gridColumn:"1 / -1", background:"var(--primary)", color:"#fff", borderRadius:14, padding:"16px 14px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-            <div>
-              <div style={{ fontSize:11, fontWeight:800, letterSpacing:".08em", opacity:.7 }}>SISA UANG</div>
-              <div style={{ fontSize:11, opacity:.6, marginTop:2 }}>Kas bersih</div>
+        <div className="card-head" style={{ borderBottom:"none", paddingBottom:12 }}><div className="card-title" style={{ fontSize:16, fontWeight:800 }}>Keuangan Hari Ini</div></div>
+        {/* 4 prominent metrics — Omset / Modal / Operasional / Sisa Uang */}
+        <div style={{ display:"grid", gap:10, padding:"0 16px 16px" }}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10 }}>
+            <div style={{ background:"var(--surface2)", borderRadius:14, padding:"14px 12px", textAlign:"center" }}>
+              <div style={{ fontSize:11, fontWeight:700, color:"var(--muted)", letterSpacing:".06em" }}>OMSET</div>
+              <div style={{ fontSize:18, fontWeight:800, marginTop:6, letterSpacing:"-.02em", fontVariantNumeric:"tabular-nums" as any }}>{formatRupiah(kpi.revenue)}</div>
             </div>
-            <div style={{ fontSize:26, fontWeight:900, letterSpacing:"-.03em", fontVariantNumeric:"tabular-nums" as any }}>{formatRupiah(kpi.grossProfit)}</div>
+            <div style={{ background:"var(--surface2)", borderRadius:14, padding:"14px 12px", textAlign:"center" }}>
+              <div style={{ fontSize:11, fontWeight:700, color:"var(--muted)", letterSpacing:".06em" }}>MODAL</div>
+              <div style={{ fontSize:18, fontWeight:800, marginTop:6, letterSpacing:"-.02em", fontVariantNumeric:"tabular-nums" as any }}>{formatRupiah(kpi.hpp)}</div>
+            </div>
+            <div style={{ background:"var(--surface2)", borderRadius:14, padding:"14px 12px", textAlign:"center" }}>
+              <div style={{ fontSize:11, fontWeight:700, color:"var(--muted)", letterSpacing:".06em" }}>OPERASIONAL</div>
+              <div style={{ fontSize:18, fontWeight:800, marginTop:6, letterSpacing:"-.02em", fontVariantNumeric:"tabular-nums" as any }}>{formatRupiah(kpi.totalExpense)}</div>
+            </div>
           </div>
-        </div>
-        {/* Minimal chart — no legend, no dates, spacious */}
-        <div style={{ padding:"0 16px 16px" }}>
-          <div style={{ display:"flex", alignItems:"flex-end", gap:6, height:80 }}>
+          <div style={{ background:"var(--primary)", color:"#fff", borderRadius:14, padding:"18px 16px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <div>
+              <div style={{ fontSize:11, fontWeight:800, letterSpacing:".08em", opacity:.6 }}>SISA UANG</div>
+              <div style={{ fontSize:11, opacity:.5, marginTop:2 }}>Kas bersih</div>
+            </div>
+            <div style={{ fontSize:30, fontWeight:900, letterSpacing:"-.04em", lineHeight:1, fontVariantNumeric:"tabular-nums" as any }}>{formatRupiah(kpi.netProfit)}</div>
+          </div>
+          {/* Minimal chart — spacious, no legend, no dates */}
+          <div style={{ display:"flex", alignItems:"flex-end", gap:6, height:64, marginTop:4 }}>
             {sales.length ? sales.slice(-7).map((s, i) => {
               const max = Math.max(...sales.map(x => x.revenue), 1);
-              const totalH = Math.max(10, (s.revenue / max) * 80);
+              const totalH = Math.max(10, (s.revenue / max) * 64);
               const hppH = s.revenue ? (s.hpp / s.revenue) * totalH : 0;
+              const expH = 0;
               const grossH = totalH - hppH;
               return (
                 <div key={s.date} style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"flex-end", height: totalH+"%", minHeight:10, gap:1, borderRadius:6, overflow:"hidden" }}>
@@ -89,41 +92,61 @@ export default async function DashboardData({ period }: { period: string }) {
                   <div style={{ height: hppH+"%", background: i===6 ? "var(--accent)" : "#E8DDD3", minHeight: hppH>2?2:0 }} />
                 </div>
               );
-            }) : <div className="muted" style={{ padding:12, fontSize:12 }}>Belum ada penjualan</div>}
+            }) : <div className="muted" style={{ padding:12, fontSize:12, textAlign:"center", width:"100%" }}>Belum ada penjualan</div>}
           </div>
         </div>
       </div>
 
-      {/* Breakdown — ultra-minimal */}
+      {/* Breakdown — Rincian Pengeluaran with Modal / Operasional sections */}
       <div className="card">
-        <div className="card-head"><div className="card-title">Rincian Modal</div></div>
-        <div style={{ padding: "12px 16px", display:"grid", gap:10 }}>
-          {topByHpp.length ? topByHpp.map((p)=>{
-            const maxHpp = Math.max(...topByHpp.map(x=>x.hpp),1);
-            const w = (p.hpp / maxHpp)*100;
-            const ratio = p.revenue ? (p.hpp/p.revenue*100).toFixed(0) : 0;
-            return (
-              <div key={p.product_id}>
-                <div style={{ display:"flex", justifyContent:"space-between", fontSize:12 }}>
-                  <b style={{ fontSize:13 }}>{p.product_name}</b>
-                  <span className="muted">{ratio}% HPP • {formatRupiah(p.hpp)}</span>
+        <div className="card-head"><div className="card-title">Rincian Pengeluaran</div></div>
+        <div style={{ padding:"14px 16px", display:"grid", gap:16 }}>
+          {topByHpp.length === 0 && kpi.totalExpense === 0 ? (
+            <div className="muted" style={{ padding:20, textAlign:"center", fontSize:13 }}>Belum ada pengeluaran hari ini.</div>
+          ) : (
+            <>
+              <div>
+                <div style={{ fontSize:11, fontWeight:800, letterSpacing:".06em", color:"var(--muted)", marginBottom:10, display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ width:8, height:8, borderRadius:"50%", background:"var(--accent)", display:"inline-block" }} /> MODAL
+                  <span style={{ fontWeight:400, textTransform:"none", letterSpacing:0, color:"var(--muted)", fontSize:11 }}>(bahan baku)</span>
                 </div>
-                <div style={{ height:8, background:"var(--surface2)", borderRadius:999, marginTop:6, overflow:"hidden", display:"flex" }}>
-                  <div style={{ width:`${w}%`, background:"var(--warning)", borderRadius:999 }} title={`HPP ${formatRupiah(p.hpp)}`} />
-                </div>
-                <div className="muted" style={{ fontSize:11, marginTop:3 }}>{p.sold} terjual • {formatRupiah(p.revenue)} revenue</div>
+                {topByHpp.length ? (
+                  <div style={{ display:"grid", gap:10 }}>
+                    {topByHpp.map((p)=>{
+                      const maxHpp = Math.max(...topByHpp.map(x=>x.hpp),1);
+                      const w = (p.hpp / maxHpp)*100;
+                      return (
+                        <div key={p.product_id}>
+                          <div style={{ display:"flex", justifyContent:"space-between", fontSize:12 }}>
+                            <b style={{ fontSize:13 }}>{p.product_name}</b>
+                            <span style={{ fontWeight:700 }}>{formatRupiah(p.hpp)}</span>
+                          </div>
+                          <div style={{ height:6, background:"var(--surface2)", borderRadius:999, marginTop:6, overflow:"hidden" }}>
+                            <div style={{ width:`${w}%`, background:"var(--accent)", borderRadius:999 }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="muted" style={{ fontSize:12, padding:"8px 0" }}>Belum ada pengeluaran hari ini.</div>
+                )}
               </div>
-            );
-          }) : <div className="muted" style={{ padding:16, textAlign:"center" }}>Belum ada pengeluaran.</div>}
-          {byCategory.length > 0 && (
-            <div style={{ borderTop:"1px solid var(--border)", marginTop:4, paddingTop:10 }}>
-              <div style={{ fontSize:11, fontWeight:700, color:"var(--muted)", letterSpacing:".06em", marginBottom:8 }}>HPP PER KATEGORI</div>
-              {byCategory.slice(0,3).map(c=>(
-                <div key={c.category} style={{ display:"flex", justifyContent:"space-between", fontSize:12, padding:"4px 0" }}>
-                  <span>{c.category}</span><span><b>{formatRupiah(c.hpp)}</b> <span className="muted">({c.hppRatio.toFixed(0)}%)</span></span>
+              <div style={{ borderTop:"1px solid var(--border)", paddingTop:14 }}>
+                <div style={{ fontSize:11, fontWeight:800, letterSpacing:".06em", color:"var(--muted)", marginBottom:10, display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ width:8, height:8, borderRadius:"50%", background:"var(--warning)", display:"inline-block" }} /> OPERASIONAL
+                  <span style={{ fontWeight:400, textTransform:"none", letterSpacing:0, color:"var(--muted)", fontSize:11 }}>(overhead)</span>
                 </div>
-              ))}
-            </div>
+                {kpi.totalExpense > 0 ? (
+                  <div style={{ background:"var(--surface2)", borderRadius:12, padding:"12px 14px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                    <span style={{ fontSize:13, fontWeight:600 }}>Total operasional</span>
+                    <b style={{ fontSize:14 }}>{formatRupiah(kpi.totalExpense)}</b>
+                  </div>
+                ) : (
+                  <div className="muted" style={{ fontSize:12, padding:"8px 0" }}>Belum ada pengeluaran hari ini.</div>
+                )}
+              </div>
+            </>
           )}
         </div>
       </div>
