@@ -115,6 +115,18 @@ export async function POST(req: Request) {
       else consumptionMap.set(ri.inventory_item_id, { qty: need, unitCost: Number(ri.inventory_item.average_cost), name: ri.inventory_item.name });
     }
   }
+  // Detect products without recipe — stock will NOT decrease (silent failure before fix)
+  const productsWithoutRecipe: { product_id: string; product_name: string }[] = [];
+  for (const it of items) {
+    const recipe = recipeByProduct.get(it.product_id);
+    if (!recipe || recipe.length === 0) {
+      const p = map.get(it.product_id);
+      productsWithoutRecipe.push({ product_id: it.product_id, product_name: p?.name || it.product_id });
+    }
+  }
+  if (productsWithoutRecipe.length > 0) {
+    console.warn(`[transactions] WARNING: ${productsWithoutRecipe.length} product(s) tanpa recipe — stock TIDAK akan berkurang:`, productsWithoutRecipe.map(p=>p.product_name).join(", "));
+  }
 
   // invoice number (reserve before transaction)
   const today = new Date();
@@ -193,7 +205,21 @@ export async function POST(req: Request) {
         revalidatePath("/pos");
         revalidatePath("/inventory");
       } catch {}
-      return Response.json(tx);
+      // Attach warning so client can show “stock tidak berkurang” reason
+      const consumptionSummary = Array.from(consumptionMap.entries()).map(([inventory_item_id, v]) => ({
+        inventory_item_id, quantity: v.qty, name: v.name,
+      }));
+      return Response.json({
+        ...tx,
+        _stock: {
+          consumption: consumptionSummary,
+          productsWithoutRecipe,
+          stockDeducted: consumptionMap.size > 0,
+          message: productsWithoutRecipe.length > 0
+            ? `Stock TIDAK berkurang untuk: ${productsWithoutRecipe.map(p=>p.product_name).join(", ")} — recipe belum dikonfigurasi. Atur di Products → Recipe atau Inventory → Resep.`
+            : consumptionMap.size > 0 ? `Stock berkurang untuk ${consumptionSummary.length} bahan` : "Tidak ada bahan terkait — cek recipe",
+        }
+      });
     } catch (e: any) {
       if (e.code === "P2002") {
         invoice = generateInvoiceNumber(new Date(), countToday + attempt + 1);

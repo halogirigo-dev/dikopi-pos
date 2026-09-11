@@ -6,14 +6,16 @@ import RealtimeRefresher from "@/components/RealtimeRefresher";
 export const revalidate = 30;
 
 export default async function POSPage() {
-  const [categories, products] = await Promise.all([
+  const [categories, products, recipes] = await Promise.all([
     prisma.category.findMany({ orderBy: { name: "asc" }}),
     prisma.product.findMany({ where: { is_available: true }, include: { category: true }, orderBy: { name: "asc" }}),
+    prisma.recipeItem.findMany({ select: { product_id: true } }),
   ]);
+  const productIdsWithRecipe = Array.from(new Set(recipes.map(r=>r.product_id)));
   return (
     <>
       <RealtimeRefresher tables={["Product", "Category"]} intervalMs={10000} />
-      <POSClient categories={categories} products={products} />
+      <POSClient categories={categories} products={products} productIdsWithRecipe={productIdsWithRecipe} />
     </>
   );
 }

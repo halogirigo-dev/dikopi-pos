@@ -201,6 +201,17 @@ export default function InventoryClient({ initialOverview, products, windowDays 
   useEffect(() => {
     if (tab === "recipes" && recipeProductId) fetchRecipe(recipeProductId);
   }, [recipeProductId]);
+  // Auto-refresh when POS transaction fires (fix “stock tidak terupdate” tanpa reload manual)
+  useEffect(() => {
+    const handler = () => { refreshOverview(); if (tab === "movements") fetchMovements(); };
+    if (typeof window !== "undefined") {
+      window.addEventListener("dikopi:refresh", handler);
+      document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") refreshOverview(); });
+    }
+    return () => {
+      if (typeof window !== "undefined") window.removeEventListener("dikopi:refresh", handler);
+    };
+  }, [tab, windowDays]);
 
   // Use runway-sorted overview items for dashboard; for items tab use filtered runway items with search
   const displayItems = useMemo(() => overview.items || [], [overview.items]);

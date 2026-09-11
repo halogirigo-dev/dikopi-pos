@@ -10,7 +10,7 @@ import { POS_TOUR } from "@/components/onboarding/data";
 type Cat = { id: string; name: string };
 type Prod = { id: string; name: string; selling_price: number; cost_price: number; category_id: string; category: Cat; image_url?: string | null };
 
-export default function POSClient({ categories, products }: { categories: Cat[]; products: Prod[] }) {
+export default function POSClient({ categories, products, productIdsWithRecipe = [] }: { categories: Cat[]; products: Prod[]; productIdsWithRecipe?: string[] }) {
   const [activeCat, setActiveCat] = useState<string>("All");
   const [search, setSearch] = useState("");
   const [payment, setPayment] = useState<string>("CASH");
@@ -48,6 +48,8 @@ export default function POSClient({ categories, products }: { categories: Cat[];
   const paidNum = Number(amountPaid.replace(/\D/g,""))||0;
   const change = payment==="CASH" && amountPaid ? paidNum - total : 0;
   const isCashInvalid = payment==="CASH" && amountPaid!=="" && paidNum < total;
+  const withRecipeSet = useMemo(()=> new Set(productIdsWithRecipe), [productIdsWithRecipe]);
+  const cartWithoutRecipe = useMemo(()=> cart.items.filter((it:any)=> !withRecipeSet.has(it.product_id)), [cart.items, withRecipeSet]);
 
   async function confirm(){
     if(!cart.items.length || isCashInvalid) return;
@@ -97,12 +99,17 @@ export default function POSClient({ categories, products }: { categories: Cat[];
         {filtered.map((p,i)=> {
           const qty = cart.items.find(it=>it.product_id===p.id)?.quantity || 0;
           const isAdded = qty > 0;
+          const hasRecipe = withRecipeSet.has(p.id);
           return (
-          <div key={p.id} className="product" {...(i===0?{"data-onboarding":"pos-product"}:{})} style={{ background:"var(--surface)", border:"1px solid var(--border)", borderRadius:16, overflow:"hidden", boxShadow:"var(--shadow)" }}>
+          <div key={p.id} className="product" {...(i===0?{"data-onboarding":"pos-product"}:{})} style={{ background:"var(--surface)", border: hasRecipe ? "1px solid var(--border)" : "1px solid #FED7AA", borderRadius:16, overflow:"hidden", boxShadow:"var(--shadow)", opacity: hasRecipe ? 1 : 0.98 }}>
             <div style={{ padding:12, flex:1, display:"flex", flexDirection:"column", gap:4 }}>
-              <div style={{ fontSize:10, fontWeight:700, letterSpacing:".06em", color:"var(--muted)", textTransform:"uppercase", lineHeight:1 }}>{p.category.name}</div>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:6 }}>
+                <div style={{ fontSize:10, fontWeight:700, letterSpacing:".06em", color:"var(--muted)", textTransform:"uppercase", lineHeight:1 }}>{p.category.name}</div>
+                {!hasRecipe && <span title="Recipe belum dikonfigurasi — stock tidak akan berkurang" style={{ fontSize:9, fontWeight:800, color:"#B45309", background:"#FEF3C7", border:"1px solid #FED7AA", padding:"2px 6px", borderRadius:999, letterSpacing:".04em", whiteSpace:"nowrap" }}>⚠ NO RECIPE</span>}
+              </div>
               <div style={{ fontSize:14, fontWeight:700, lineHeight:"16px", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" as any, overflow:"hidden", minHeight:32 }}>{p.name}</div>
               <div style={{ fontSize:14, fontWeight:800, color:"var(--text)", letterSpacing:"-.01em", fontVariantNumeric:"tabular-nums" as any, marginTop:2 }}>{formatRupiah(p.selling_price)}</div>
+              {!hasRecipe && <div style={{ fontSize:10, color:"#B45309", fontWeight:600, lineHeight:1.2, marginTop:2 }}>Stock TIDAK akan berkurang saat terjual</div>}
               {isAdded ? (
                 <div style={{ marginTop:8, display:"flex", alignItems:"center", gap:6, background:"var(--surface2)", border:"1px solid var(--border)", borderRadius:12, padding:4 }}>
                   <button aria-label="Kurangi" className="btn" style={{ width:36, height:36, minHeight:36, minWidth:36, padding:0, borderRadius:8, fontSize:16, flex:"0 0 36px", background:"var(--surface)" }} onClick={()=>cart.updateQty(p.id, qty-1)}>−</button>
@@ -165,6 +172,12 @@ export default function POSClient({ categories, products }: { categories: Cat[];
               ))}
             </div>
             <div style={{ padding:16, borderTop:"1px solid var(--border)" }}>
+              {cartWithoutRecipe.length>0 && (
+                <div style={{ background:"#FFF7E5", border:"1px solid #FED7AA", borderRadius:10, padding:"8px 10px", marginBottom:10 }}>
+                  <div style={{ fontSize:11, fontWeight:800, color:"#B45309" }}>⚠ {cartWithoutRecipe.length} produk tanpa recipe</div>
+                  <div style={{ fontSize:11, color:"#B45309", marginTop:2 }}>{cartWithoutRecipe.map((it:any)=> it.product_name).join(", ")} — stock TIDAK akan berkurang. Atur di Products → Recipe.</div>
+                </div>
+              )}
               <div className="total"><span>Total</span><span>{formatRupiah(total)}</span></div>
               <button className="btn primary" style={{ width:"100%", minHeight:48 }} onClick={()=>{ setShowCart(false); setShowPayment(true); }}>Lanjut ke Pembayaran</button>
             </div>
@@ -207,6 +220,12 @@ export default function POSClient({ categories, products }: { categories: Cat[];
                 </div>
               )}
 
+              {cartWithoutRecipe.length>0 && (
+                <div style={{ background:"#FFF7E5", border:"1px solid #FED7AA", borderRadius:10, padding:"8px 10px", marginBottom:10 }}>
+                  <div style={{ fontSize:11, fontWeight:800, color:"#B45309" }}>⚠ Stock tidak berkurang untuk {cartWithoutRecipe.length} item</div>
+                  <div style={{ fontSize:11, color:"var(--text2)" }}>{cartWithoutRecipe.map((it:any)=> it.product_name).join(", ")} — lengkapi recipe agar inventory terpotong otomatis.</div>
+                </div>
+              )}
               <button className="btn primary" style={{ width:"100%", minHeight:52, fontSize:16 }} onClick={confirm} disabled={loading || isCashInvalid}>
                 {loading?"Memproses...":`Bayar ${formatRupiah(total)}`}
               </button>
@@ -224,6 +243,18 @@ export default function POSClient({ categories, products }: { categories: Cat[];
             <div style={{ fontSize:24, fontWeight:800, marginTop:8 }}>{formatRupiah(success.total_revenue || total)}</div>
             <div className="muted" style={{ marginTop:4 }}>{success.payment_method || payment} • {success.invoice_number}</div>
             {success.change_amount!=null && success.payment_method==="CASH" && <div className="muted" style={{ marginTop:6 }}>Kembalian {formatRupiah(success.change_amount)}</div>}
+            {success._stock?.productsWithoutRecipe?.length > 0 ? (
+              <div style={{ marginTop:12, background:"#FFF7E5", border:"1px solid #FED7AA", borderRadius:10, padding:"10px 12px", textAlign:"left" }}>
+                <div style={{ fontSize:11, fontWeight:800, color:"#B45309" }}>⚠ Stock TIDAK berkurang</div>
+                <div style={{ fontSize:11, color:"#92400E", marginTop:4 }}>{success._stock.message}</div>
+                <a href="/products" style={{ fontSize:11, fontWeight:700, color:"var(--text)", display:"inline-block", marginTop:6 }}>Atur Recipe →</a>
+              </div>
+            ) : success._stock?.stockDeducted ? (
+              <div style={{ marginTop:12, background:"var(--green-soft)", border:"1px solid #BBF7D0", borderRadius:10, padding:"10px 12px", textAlign:"left", display:"flex", gap:8, alignItems:"center" }}>
+                <span style={{ fontSize:14 }}>✓</span>
+                <div style={{ fontSize:11, fontWeight:600, color:"var(--green)" }}>Stock otomatis berkurang ({success._stock.consumption?.length} bahan) — cek di Inventory</div>
+              </div>
+            ) : null}
             <button className="btn primary" style={{ width:"100%", marginTop:20, minHeight:48 }} onClick={()=>setSuccess(null)}>Selesai</button>
           </div>
         </div>
