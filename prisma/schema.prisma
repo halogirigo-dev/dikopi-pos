@@ -37,6 +37,12 @@ enum StockMovementType {
   WASTE
   RETURN
   OPENING
+  PRODUCTION
+}
+
+enum InventoryItemType {
+  BASE
+  SEMI_FINISH
 }
 
 model User {
@@ -91,13 +97,17 @@ model InventoryItem {
   target_stock  Decimal?        @db.Decimal(12, 3)
   average_cost  Decimal         @default(0) @db.Decimal(12, 2)
   is_active     Boolean         @default(true)
+  item_type     InventoryItemType @default(BASE)
   created_at    DateTime        @default(now())
   updated_at    DateTime        @updatedAt
   recipeItems   RecipeItem[]
   movements     StockMovement[]
+  outputRecipes InventoryRecipe[] @relation("OutputRecipe")
+  inputRecipes  InventoryRecipe[] @relation("InputRecipe")
 
   @@index([is_active])
   @@index([unit])
+  @@index([item_type])
 }
 
 model RecipeItem {
@@ -113,6 +123,21 @@ model RecipeItem {
   @@unique([product_id, inventory_item_id])
   @@index([product_id])
   @@index([inventory_item_id])
+}
+
+model InventoryRecipe {
+  id             String        @id @default(cuid())
+  output_item_id String
+  output_item    InventoryItem @relation("OutputRecipe", fields: [output_item_id], references: [id], onDelete: Cascade)
+  input_item_id  String
+  input_item     InventoryItem @relation("InputRecipe", fields: [input_item_id], references: [id], onDelete: Restrict)
+  quantity       Decimal       @db.Decimal(12, 3)
+  created_at     DateTime      @default(now())
+  updated_at     DateTime      @updatedAt
+
+  @@unique([output_item_id, input_item_id])
+  @@index([output_item_id])
+  @@index([input_item_id])
 }
 
 model StockMovement {

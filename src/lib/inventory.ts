@@ -20,6 +20,7 @@ export type RunwayInfo = {
   target_stock: number | null;
   average_cost: number;
   is_active: boolean;
+  item_type: "BASE" | "SEMI_FINISH";
   // consumption
   avg_daily_consumption: number;
   avg_daily_cost: number;
@@ -106,7 +107,7 @@ export function getBarPct(current: number, target: number | null, minimum: numbe
  * using pre-calculated avgDaily.
  */
 export function computeRunwayForItem(
-  item: { id: string; name: string; sku: string | null; unit: string; current_stock: any; minimum_stock: any; target_stock: any; average_cost: any; is_active: boolean },
+  item: { id: string; name: string; sku: string | null; unit: string; current_stock: any; minimum_stock: any; target_stock: any; average_cost: any; is_active: boolean; item_type?: any },
   avgDaily: number,
   totalConsumed: number,
   windowDays: number
@@ -150,6 +151,7 @@ export function computeRunwayForItem(
     target_stock: target,
     average_cost: avgCost,
     is_active: item.is_active,
+    item_type: (item as any).item_type || "BASE",
     avg_daily_consumption: avgDaily,
     avg_daily_cost: avgDailyCost,
     runway_days: runwayDays != null ? Math.round(runwayDays * 10) / 10 : null,

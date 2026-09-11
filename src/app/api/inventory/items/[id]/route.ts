@@ -25,7 +25,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   const session: any = await getServerSession(authOptions);
   if (!session || session.user.role !== "ADMIN") return new Response("Forbidden", { status: 403 });
   const body = await req.json();
-  const { name, sku, unit, minimum_stock, target_stock, average_cost, is_active } = body;
+  const { name, sku, unit, minimum_stock, target_stock, average_cost, is_active, item_type } = body;
   // Note: current_stock should NOT be directly updated here; use purchase/adjustment ledger. But allow if needed via adjustment.
   // We keep current_stock immutable via PUT to preserve ledger integrity, unless explicitly allowed.
   const current = await prisma.inventoryItem.findUnique({ where: { id: params.id } });
@@ -41,6 +41,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         target_stock: target_stock !== undefined ? (target_stock != null && target_stock !== "" ? Number(target_stock) : null) : undefined,
         average_cost: average_cost != null ? Number(average_cost) : undefined,
         is_active: is_active != null ? Boolean(is_active) : undefined,
+        item_type: item_type != null ? (item_type === "SEMI_FINISH" ? "SEMI_FINISH" : "BASE") as any : undefined,
       },
     });
     try { revalidatePath("/inventory"); } catch {}

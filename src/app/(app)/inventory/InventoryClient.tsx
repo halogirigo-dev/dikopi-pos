@@ -13,6 +13,10 @@ function statusMeta(s: string) {
     default: return { label: "SAFE", short: "SAFE", icon: "●", color: "#15803D", bg: "#DCFCE7", bar: "#22C55E" };
   }
 }
+function typeMeta(t: string) {
+  if (t === "SEMI_FINISH") return { label: "SEMI", long: "SEMI-FINISH", color: "#A66A3F", bg: "#F4E9E0", border: "#EAD9C8" };
+  return { label: "BASE", long: "BASE", color: "#6B6B6B", bg: "#F2F1ED", border: "#E5E3DE" };
+}
 function fmtQty(qty: number, unit: string) {
   const s = qty % 1 === 0 ? qty.toFixed(0) : qty.toFixed(2).replace(/\.?0+$/, "");
   return `${s} ${unit}`;
@@ -138,7 +142,7 @@ function DepletionChart({ current, avgDaily, runwayDays, hasForecast, unit }: { 
 }
 
 export default function InventoryClient({ initialOverview, products, windowDays }: { initialOverview: any; products: any[]; windowDays: number }) {
-  const [tab, setTab] = useState<"overview" | "items" | "movements" | "recipes">("overview");
+  const [tab, setTab] = useState<"overview" | "items" | "movements" | "recipes" | "blending">("overview");
   // Ensure Dates came as ISO strings from page.tsx serialization
   const [overview, setOverview] = useState(initialOverview);
   const [items, setItems] = useState<any[]>(initialOverview.items || []);
@@ -147,7 +151,8 @@ export default function InventoryClient({ initialOverview, products, windowDays 
   const [selected, setSelected] = useState<any | null>(null);
   const [showItemForm, setShowItemForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
-  const [form, setForm] = useState({ name: "", sku: "", unit: "g", current_stock: "", minimum_stock: "", target_stock: "", average_cost: "" });
+  const [form, setForm] = useState({ name: "", sku: "", unit: "g", current_stock: "", minimum_stock: "", target_stock: "", average_cost: "", item_type: "BASE" as "BASE" | "SEMI_FINISH" });
+  const [typeFilter, setTypeFilter] = useState<"ALL" | "BASE" | "SEMI_FINISH">("ALL");
   const [purchase, setPurchase] = useState({ inventory_item_id: "", quantity: "", unit_cost: "", note: "" });
   const [showPurchase, setShowPurchase] = useState(false);
   const [adjust, setAdjust] = useState({ inventory_item_id: "", quantity: "", type: "ADJUSTMENT", note: "" });
@@ -155,6 +160,13 @@ export default function InventoryClient({ initialOverview, products, windowDays 
   const [recipeProductId, setRecipeProductId] = useState<string>(products[0]?.id || "");
   const [recipeItems, setRecipeItems] = useState<any[]>([]);
   const [recipeDraft, setRecipeDraft] = useState<{ inventory_item_id: string; quantity: string }[]>([]);
+  // Semi-finish blending (Arabica+Robusta -> Espresso)
+  const [semiOutputId, setSemiOutputId] = useState<string>("");
+  const [semiBom, setSemiBom] = useState<any[]>([]);
+  const [semiDraft, setSemiDraft] = useState<{ input_item_id: string; quantity: string }[]>([]);
+  const [produceQty, setProduceQty] = useState<string>("");
+  const [produceNote, setProduceNote] = useState<string>("");
+  const [showProduce, setShowProduce] = useState(false);
   const router = useRouter();
 
   async function refreshOverview() {
@@ -194,6 +206,27 @@ export default function InventoryClient({ initialOverview, products, windowDays 
       setRecipeDraft([]);
     }
   }
+  async function fetchSemiBom(outputId: string) {
+    if (!outputId) { setSemiBom([]); setSemiDraft([]); return; }
+    const res = await fetch(`/api/inventory/semi-recipes?output_item_id=${outputId}`);
+    if (res.ok) {
+      const d = await res.json();
+      setSemiBom(d);
+      setSemiDraft(d.map((r: any) => ({ input_item_id: r.input_item_id, quantity: String(r.quantity) })));
+    } else { setSemiBom([]); setSemiDraft([]); }
+  }
+  async function saveSemiBom() {
+    if (!semiOutputId) return alert("Pilih semi-finish dulu");
+    const clean = semiDraft.filter(r=> r.input_item_id && Number(r.quantity)>0);
+    const seen=new Set<string>(); for(const r of clean) if(seen.has(r.input_item_id)) return alert("Duplikat bahan"), seen.add(r.input_item_id); else seen.add(r.input_item_id);
+    const res=await fetch("/api/inventory/semi-recipes",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({output_item_id:semiOutputId, items: clean.map(r=>({input_item_id:r.input_item_id, quantity:Number(r.quantity)}))})});
+    if(res.ok){ alert("BOM blending disimpan"); fetchSemiBom(semiOutputId); } else alert(await res.text());
+  }
+  async function doProduce(){
+    if(!semiOutputId || !produceQty || !(Number(produceQty)>0)) return alert("Pilih output & qty");
+    const res=await fetch("/api/inventory/produce",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({output_item_id:semiOutputId, quantity:Number(produceQty), note: produceNote})});
+    if(res.ok){ const d=await res.json(); alert(`Berhasil blend ${d.output.name} x${produceQty} (cost ${formatRupiah(d.unit_cost)}/shot)`); setShowProduce(false); setProduceQty(""); setProduceNote(""); await refreshOverview(); if(tab==="movements") fetchMovements(); } else alert(await res.text());
+  }
   useEffect(() => {
     if (tab === "movements") fetchMovements();
     if (tab === "recipes" && recipeProductId) fetchRecipe(recipeProductId);
@@ -201,6 +234,7 @@ export default function InventoryClient({ initialOverview, products, windowDays 
   useEffect(() => {
     if (tab === "recipes" && recipeProductId) fetchRecipe(recipeProductId);
   }, [recipeProductId]);
+  useEffect(()=>{ if(semiOutputId) fetchSemiBom(semiOutputId); },[semiOutputId]);
   // Auto-refresh when POS transaction fires (fix “stock tidak terupdate” tanpa reload manual)
   useEffect(() => {
     const handler = () => { refreshOverview(); if (tab === "movements") fetchMovements(); };
@@ -213,17 +247,21 @@ export default function InventoryClient({ initialOverview, products, windowDays 
     };
   }, [tab, windowDays]);
 
-  // Use runway-sorted overview items for dashboard; for items tab use filtered runway items with search
+  // Use runway-sorted overview items for dashboard; for items tab use filtered runway items with search + type filter
   const displayItems = useMemo(() => overview.items || [], [overview.items]);
   const filteredDisplay = useMemo(() => {
-    if (!search) return displayItems;
+    let arr = displayItems;
+    if (typeFilter !== "ALL") arr = arr.filter((it:any)=> (it.item_type||"BASE")===typeFilter);
+    if (!search) return arr;
     const q = search.toLowerCase();
-    return displayItems.filter((it: any) => it.name.toLowerCase().includes(q) || (it.sku && it.sku.toLowerCase().includes(q)));
-  }, [displayItems, search]);
+    return arr.filter((it: any) => it.name.toLowerCase().includes(q) || (it.sku && it.sku.toLowerCase().includes(q)));
+  }, [displayItems, search, typeFilter]);
+  const semiItems = useMemo(()=> displayItems.filter((it:any)=> (it.item_type||"BASE")==="SEMI_FINISH"),[displayItems]);
+  const baseItems = useMemo(()=> displayItems.filter((it:any)=> (it.item_type||"BASE")==="BASE"),[displayItems]);
 
   function openCreate() {
     setEditing(null);
-    setForm({ name: "", sku: "", unit: "g", current_stock: "", minimum_stock: "", target_stock: "", average_cost: "" });
+    setForm({ name: "", sku: "", unit: "g", current_stock: "", minimum_stock: "", target_stock: "", average_cost: "", item_type: "BASE" });
     setShowItemForm(true);
   }
   function openEdit(it: any) {
@@ -236,6 +274,7 @@ export default function InventoryClient({ initialOverview, products, windowDays 
       minimum_stock: String(it.minimum_stock),
       target_stock: it.target_stock != null ? String(it.target_stock) : "",
       average_cost: String(it.average_cost),
+      item_type: (it.item_type as any) || "BASE",
     });
     setShowItemForm(true);
   }
@@ -248,6 +287,7 @@ export default function InventoryClient({ initialOverview, products, windowDays 
       minimum_stock: form.minimum_stock ? Number(form.minimum_stock) : 0,
       target_stock: form.target_stock ? Number(form.target_stock) : null,
       average_cost: form.average_cost ? Number(form.average_cost) : 0,
+      item_type: form.item_type,
     };
     if (!editing) payload.current_stock = form.current_stock ? Number(form.current_stock) : 0;
     const url = editing ? `/api/inventory/items/${editing.inventory_item_id || editing.id}` : "/api/inventory/items";
@@ -310,10 +350,11 @@ export default function InventoryClient({ initialOverview, products, windowDays 
           { id: "items", label: "Kelola" },
           { id: "movements", label: "Riwayat" },
           { id: "recipes", label: "Resep" },
+          { id: "blending", label: "Blending" },
         ]}
         active={tab}
         onChange={(v) => setTab(v as any)}
-        style={{ maxWidth: 520 }}
+        style={{ maxWidth: 640 }}
       />
 
       {/* Window selector */}
@@ -334,7 +375,11 @@ export default function InventoryClient({ initialOverview, products, windowDays 
               <div>
                 <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: ".08em" }}>TOTAL ITEMS</div>
                 <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-.02em", lineHeight: 1 }}>{counts.total}</div>
-                <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>Stock items tracked</div>
+                <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>Stock items tracked • Base {baseItems.length} • Semi {semiItems.length}</div>
+                <div className="muted" style={{ fontSize:10, marginTop:4, display:"flex", gap:6, flexWrap:"wrap" }}>
+                  <span style={{ background: typeMeta("BASE").bg, color: typeMeta("BASE").color, padding:"2px 6px", borderRadius:999, border:`1px solid ${typeMeta("BASE").border}`, fontWeight:700 }}>BASE</span>
+                  <span style={{ background: typeMeta("SEMI_FINISH").bg, color: typeMeta("SEMI_FINISH").color, padding:"2px 6px", borderRadius:999, border:`1px solid ${typeMeta("SEMI_FINISH").border}`, fontWeight:700 }}>SEMI</span>
+                </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, flex: 1, maxWidth: 220 }}>
                 <div style={{ background: "#DCFCE7", borderRadius: 10, padding: "8px 10px", textAlign: "center" }}>
@@ -379,6 +424,11 @@ export default function InventoryClient({ initialOverview, products, windowDays 
             </div>
           </div>
 
+          {/* Type filter BASE vs SEMI */}
+          <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
+            <span className="muted" style={{ fontSize:11, fontWeight:700, letterSpacing:".06em" }}>KLASIFIKASI</span>
+            <Segment items={[{id:"ALL", label:`Semua (${displayItems.length})`},{id:"BASE", label:`Base (${baseItems.length})`},{id:"SEMI_FINISH", label:`Semi (${semiItems.length})` }]} active={typeFilter} onChange={v=> setTypeFilter(v as any)} style={{ maxWidth: 420 }} />
+          </div>
           {/* Search inline */}
           <input className="input" placeholder="Cari bahan / SKU..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ minHeight: 44 }} />
 
@@ -400,9 +450,15 @@ export default function InventoryClient({ initialOverview, products, windowDays 
               const targetLabel = fmtTarget(it.target_stock, it.unit);
               return (
                 <div key={it.inventory_item_id} className="card" style={{ padding: 14, cursor: "pointer", display: "grid", gap: 10 }} onClick={() => setSelected(it)} role="button" tabIndex={0} aria-label={`${it.name} ${m.label} ${hasForecast ? `${it.runway_days} hari` : isOut ? "habis" : "tanpa data"}`}>
-                  {/* Header: name + compact status pill */}
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.25, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.name}</div>
+                  {/* Header: name + type + status pill */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.name}</div>
+                      <div style={{ display:"flex", gap:6, marginTop:4, flexWrap:"wrap" }}>
+                        {(() => { const tm=typeMeta(it.item_type||"BASE"); return <span style={{ display:"inline-flex", alignItems:"center", padding:"2px 6px", borderRadius:999, background:tm.bg, color:tm.color, border:`1px solid ${tm.border}`, fontSize:9, fontWeight:800, letterSpacing:".06em" }}>{tm.label}</span>; })()}
+                        <span className="muted" style={{ fontSize:10 }}>{it.unit} • {it.sku || "no SKU"}</span>
+                      </div>
+                    </div>
                     <span style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 8px", borderRadius: 999, background: m.bg, color: m.color, fontSize: 10, fontWeight: 800, letterSpacing: ".06em", lineHeight: 1 }}>
                       <span aria-hidden style={{ width: 6, height: 6, borderRadius: "50%", background: m.color, display: "inline-block" }} />
                       {m.label}
@@ -485,11 +541,12 @@ export default function InventoryClient({ initialOverview, products, windowDays 
           <div style={{ display: "grid", gap: 12 }}>
             {filteredDisplay.map((it: any) => {
               const m = statusMeta(it.stock_status);
+              const tm = typeMeta(it.item_type||"BASE");
               return (
-                <div key={it.inventory_item_id} className="card" style={{ padding: 14 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div><div style={{ fontWeight: 800 }}>{it.name}</div><div className="muted" style={{ fontSize: 11 }}>{it.sku || "-"} • avg {formatRupiah(it.average_cost)}</div></div>
-                    <span style={{ background: m.bg, color: m.color, borderRadius: 999, padding: "4px 8px", fontSize: 10, fontWeight: 800 }}>{m.icon} {m.short}</span>
+                <div key={it.inventory_item_id} className="card" style={{ padding: 14, borderLeft: tm.label==="SEMI" ? `3px solid ${tm.color}`: undefined }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap:8 }}>
+                    <div><div style={{ fontWeight: 800, display:"flex", gap:6, alignItems:"center", flexWrap:"wrap" }}>{it.name} <span style={{ background:tm.bg, color:tm.color, border:`1px solid ${tm.border}`, borderRadius:999, padding:"2px 6px", fontSize:9, fontWeight:800 }}>{tm.label}</span></div><div className="muted" style={{ fontSize: 11 }}>{it.sku || "-"} • avg {formatRupiah(it.average_cost)} • {it.unit}</div></div>
+                    <span style={{ background: m.bg, color: m.color, borderRadius: 999, padding: "4px 8px", fontSize: 10, fontWeight: 800, flexShrink:0 }}>{m.icon} {m.short}</span>
                   </div>
                   <div style={{ marginTop: 10 }}><StockBar pct={it.bar_pct} status={it.stock_status} /></div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10, background: "var(--surface2)", borderRadius: 10, padding: 10 }}>
@@ -564,6 +621,67 @@ export default function InventoryClient({ initialOverview, products, windowDays 
         </>
       )}
 
+      {tab === "blending" && (
+        <>
+          <div className="card" style={{ padding:16, background:"#FFF7E5", border:"1px solid #FED7AA" }}>
+            <div style={{ fontWeight:800, fontSize:13, color:"#B45309" }}>☕ Blending: BASE → SEMI-FINISH</div>
+            <div className="muted" style={{ fontSize:11, marginTop:4, color:"#92400E" }}>Espresso (Semi Finish) adalah hasil blending Arabica + Robusta. Produksi mengurangi stok Base dan menambah stok Semi.</div>
+            <div className="muted" style={{ fontSize:11, marginTop:6 }}>Alur: <b style={{color:"#92400E"}}>Arabica 12g + Robusta 6g → Espresso 1 shot</b> • Atur BOM lalu Blend.</div>
+          </div>
+          <div className="card" style={{ padding:16 }}>
+            <div style={{ fontWeight:700, marginBottom:8 }}>Pilih Semi-Finish untuk di-blend</div>
+            <select className="input" value={semiOutputId} onChange={e=> setSemiOutputId(e.target.value)}>
+              <option value="">Pilih semi-finish</option>
+              {semiItems.length===0 ? <option disabled>Tidak ada SEMI_FINISH — buat di Kelola</option> :
+               semiItems.map((it:any)=><option key={it.inventory_item_id} value={it.inventory_item_id}>{it.name} ({it.unit} • stok {fmtQty(it.current_stock, it.unit)})</option>)
+              }
+            </select>
+            <div className="muted" style={{ fontSize:11, marginTop:6 }}>{semiBom.length? `BOM saat ini: ${semiBom.map((r:any)=> `${r.input_item.name} ${Number(r.quantity)}${r.input_item.unit}`).join(" + ")} → 1 ${semiItems.find((x:any)=>x.inventory_item_id===semiOutputId)?.unit || "shot"}` : "Belum ada BOM — tambah di bawah"}</div>
+          </div>
+          {semiOutputId && (
+            <>
+              <div className="card" style={{ padding:16 }}>
+                <div style={{ fontWeight:700, marginBottom:12 }}>BOM / Resep Blending untuk {semiItems.find((x:any)=>x.inventory_item_id===semiOutputId)?.name}</div>
+                <div className="muted" style={{ fontSize:11, marginBottom:8 }}>Hanya BASE yang bisa jadi input. Contoh: Arabica 12g + Robusta 6g per 1 shot Espresso.</div>
+                {semiDraft.map((r,idx)=> (
+                  <div key={idx} style={{ display:"flex", gap:8, marginBottom:8, alignItems:"center" }}>
+                    <select className="input" style={{ flex:"1 1 0" }} value={r.input_item_id} onChange={e=>{ const nd=[...semiDraft]; nd[idx].input_item_id=e.target.value; setSemiDraft(nd); }}>
+                      <option value="">Pilih bahan BASE</option>
+                      {baseItems.map((it:any)=> <option key={it.inventory_item_id} value={it.inventory_item_id}>{it.name} ({it.unit} • {fmtQty(it.current_stock, it.unit)})</option>)}
+                    </select>
+                    <input className="input" style={{ width:110, flex:"0 0 110px" }} type="number" step="0.001" placeholder="Qty" value={r.quantity} onChange={e=>{ const nd=[...semiDraft]; nd[idx].quantity=e.target.value; setSemiDraft(nd); }} />
+                    <span className="muted" style={{ fontSize:10 }}>{baseItems.find((x:any)=>x.inventory_item_id===r.input_item_id)?.unit||""}</span>
+                    <button className="btn" style={{ width:44, height:44, flex:"0 0 44px", padding:0 }} onClick={()=> setSemiDraft(semiDraft.filter((_,i)=>i!==idx))}>×</button>
+                  </div>
+                ))}
+                <button className="btn" style={{ width:"100%", minHeight:40, marginTop:4 }} onClick={()=> setSemiDraft([...semiDraft,{input_item_id:"", quantity:""}])}>＋ Tambah Bahan</button>
+                <button className="btn accent" style={{ width:"100%", minHeight:44, marginTop:10 }} onClick={saveSemiBom}>Simpan BOM Blending</button>
+              </div>
+              <div className="card" style={{ padding:16 }}>
+                <div style={{ fontWeight:700, marginBottom:12 }}>Produksi / Blending</div>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+                  <div className="field"><label>Qty Output (shot)</label><input className="input" type="number" step="1" placeholder="20" value={produceQty} onChange={e=> setProduceQty(e.target.value)} /></div>
+                  <div className="field"><label>Catatan</label><input className="input" placeholder="Batch pagi" value={produceNote} onChange={e=> setProduceNote(e.target.value)} /></div>
+                </div>
+                {semiBom.length>0 && produceQty && Number(produceQty)>0 && (
+                  <div style={{ background:"var(--surface2)", borderRadius:10, padding:10, marginTop:10, fontSize:11 }}>
+                    <div style={{ fontWeight:700, marginBottom:4 }}>Kebutuhan untuk {produceQty} shot:</div>
+                    {semiBom.map((r:any)=> {
+                      const need = Number(r.quantity) * Number(produceQty);
+                      const input = baseItems.find((x:any)=> x.inventory_item_id===r.input_item_id);
+                      const stock = input ? input.current_stock : 0;
+                      const ok = stock >= need;
+                      return <div key={r.input_item_id} style={{ display:"flex", justifyContent:"space-between", color: ok? "var(--text)" : "var(--red)", fontWeight: ok?400:700 }}>{r.input_item.name} {fmtQty(need, r.input_item.unit)} <span style={{ color: ok? "var(--muted)":"var(--red)" }}>stok {fmtQty(stock, r.input_item.unit)} {ok?"✓":"✗ kurang"}</span></div>
+                    })}
+                  </div>
+                )}
+                <button className="btn accent" style={{ width:"100%", minHeight:44, marginTop:10 }} onClick={doProduce}>Blend Sekarang</button>
+              </div>
+            </>
+          )}
+        </>
+      )}
+
       {/* Inventory Detail — Runway + Depletion Chart (§5 §6) */}
       {selected && (
         <div className="bottom-sheet" onClick={() => setSelected(null)}>
@@ -628,14 +746,16 @@ export default function InventoryClient({ initialOverview, products, windowDays 
             <div className="formgrid">
               <div className="field full"><label>Nama *</label><input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Espresso Beans" /></div>
               <div className="field"><label>SKU</label><input className="input" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} placeholder="BEANS-001" /></div>
-              <div className="field"><label>Satuan *</label><select className="input" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })}><option value="g">g</option><option value="kg">kg</option><option value="ml">ml</option><option value="liter">liter</option><option value="pcs">pcs</option><option value="pack">pack</option><option value="bottle">bottle</option><option value="sachet">sachet</option><option value="box">box</option></select></div>
+              <div className="field"><label>Satuan *</label><select className="input" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })}><option value="g">g</option><option value="kg">kg</option><option value="ml">ml</option><option value="liter">liter</option><option value="pcs">pcs</option><option value="shot">shot</option><option value="pack">pack</option><option value="bottle">bottle</option><option value="sachet">sachet</option><option value="box">box</option></select></div>
+              <div className="field"><label>Klasifikasi *</label><select className="input" value={form.item_type} onChange={e=> setForm({...form, item_type:e.target.value as any})}><option value="BASE">BASE — bahan baku (Arabica, Robusta, Milk)</option><option value="SEMI_FINISH">SEMI-FINISH — hasil blending (Espresso Shot)</option></select></div>
               {!editing && <div className="field"><label>Stok Awal</label><input className="input" type="number" step="0.001" value={form.current_stock} onChange={(e) => setForm({ ...form, current_stock: e.target.value })} placeholder="0" /></div>}
               <div className="field"><label>Minimum Stok</label><input className="input" type="number" step="0.001" value={form.minimum_stock} onChange={(e) => setForm({ ...form, minimum_stock: e.target.value })} placeholder="5" /></div>
               <div className="field"><label>Target Stok</label><input className="input" type="number" step="0.001" value={form.target_stock} onChange={(e) => setForm({ ...form, target_stock: e.target.value })} placeholder="20" /></div>
               <div className="field"><label>Avg Cost (Rp / unit)</label><input className="input" type="number" value={form.average_cost} onChange={(e) => setForm({ ...form, average_cost: e.target.value })} placeholder="15000" /></div>
+              <div className="field full" style={{ background: form.item_type==="SEMI_FINISH" ? "#F4E9E0" : "#F2F1ED", border:`1px solid ${form.item_type==="SEMI_FINISH" ? "#EAD9C8" : "var(--border)"}`, borderRadius:10, padding:"8px 10px", fontSize:11, lineHeight:1.4 }}>{form.item_type==="SEMI_FINISH" ? "☕ Semi-finish: akan di-blend dari BASE (Arabica+Robusta). Atur BOM di Inventory → Resep Semi." : "🌱 Base: bahan baku langsung dibeli dari supplier."}</div>
               <div className="full" style={{ display: "flex", gap: 8, marginTop: 8 }}><button className="btn accent" style={{ flex: 1 }} onClick={submitItem}>{editing ? "Simpan" : "Tambah"}</button><button className="btn" style={{ flex: 1 }} onClick={() => setShowItemForm(false)}>Batal</button></div>
             </div>
-            {editing && <div className="muted" style={{ fontSize: 11, marginTop: 8 }}>Stok tidak bisa diedit langsung; gunakan Pembelian / Adjust.</div>}
+            {editing && <div className="muted" style={{ fontSize: 11, marginTop: 8 }}>Stok tidak bisa diedit langsung; gunakan Pembelian / Adjust / Blending.</div>}
           </div>
         </div>
       )}

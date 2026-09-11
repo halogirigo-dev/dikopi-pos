@@ -9,10 +9,12 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const search = searchParams.get("search")?.toLowerCase();
   const is_active = searchParams.get("is_active");
+  const item_type = searchParams.get("item_type");
   const where: any = {};
   if (search) where.OR = [{ name: { contains: search, mode: "insensitive" } }, { sku: { contains: search, mode: "insensitive" } }];
   if (is_active === "true") where.is_active = true;
   if (is_active === "false") where.is_active = false;
+  if (item_type === "BASE" || item_type === "SEMI_FINISH") where.item_type = item_type;
   const items = await prisma.inventoryItem.findMany({
     where,
     orderBy: { name: "asc" },
@@ -33,9 +35,10 @@ export async function POST(req: Request) {
   const session: any = await getServerSession(authOptions);
   if (!session || session.user.role !== "ADMIN") return new Response("Forbidden", { status: 403 });
   const body = await req.json();
-  const { name, sku, unit, current_stock, minimum_stock, target_stock, average_cost, is_active } = body;
+  const { name, sku, unit, current_stock, minimum_stock, target_stock, average_cost, is_active, item_type } = body;
   if (!name || !unit) return new Response("Missing name/unit", { status: 400 });
   if (Number(current_stock) < 0 || Number(minimum_stock) < 0) return new Response("Stock cannot be negative", { status: 400 });
+  const validatedType = item_type === "SEMI_FINISH" ? "SEMI_FINISH" : "BASE";
   try {
     const item = await prisma.inventoryItem.create({
       data: {
@@ -47,6 +50,7 @@ export async function POST(req: Request) {
         target_stock: target_stock != null && target_stock !== "" ? Number(target_stock) : null,
         average_cost: average_cost != null ? Number(average_cost) : 0,
         is_active: is_active ?? true,
+        item_type: validatedType as any,
       },
     });
     // Optionally create OPENING movement if initial stock >0
