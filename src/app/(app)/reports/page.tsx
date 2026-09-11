@@ -3,6 +3,7 @@ import { getDateRange, formatRupiah, formatRupiahShort } from "@/lib/utils";
 import ReportsClient from "./ReportsClient";
 import { FeatureTourClient } from "@/components/onboarding/FeatureTourClient";
 import { REPORTS_TOUR } from "@/components/onboarding/data";
+import { getCogsVariance, getCogsByCategory } from "@/lib/cogs";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -20,6 +21,131 @@ export default async function ReportsPage({ searchParams }: { searchParams: { pe
   const totalGross = products.reduce((s,p)=>s+p.gross,0);
   const maxRev = Math.max(...products.map(p=>p.revenue),1);
   const maxSold = Math.max(...products.map(p=>p.sold),1);
+
+  // COGS view — deep HPP analysis integrated with recipe truth
+  if (view==="cogs") {
+    const [variance, byCategory] = await Promise.all([
+      getCogsVariance(10).catch(()=>({ items:[], counts:{total:0,ok:0,drift:0,noRecipe:0}, driftTotalDiff:0 } as any)),
+      getCogsByCategory(from,to).catch(()=>[]),
+    ]);
+    const hppRatio = kpi.revenue ? (kpi.hpp/kpi.revenue)*100 : 0;
+    const health = !kpi.revenue ? {label:"-", color:"var(--muted)", bg:"var(--surface2)"} : hppRatio<=35 ? {label:"Sehat", color:"var(--green)", bg:"var(--green-soft)"} : hppRatio<=50 ? {label:"Cukup", color:"var(--warning)", bg:"var(--warning-soft)"} : {label:"Tipis", color:"var(--red)", bg:"var(--red-soft)"};
+    const maxHppDay = Math.max(...sales.map(s=>s.hpp),1);
+    const maxRevDay = Math.max(...sales.map(s=>s.revenue),1);
+    return (
+      <div>
+        <div className="filters" style={{ justifyContent:"space-between", flexWrap:"wrap", gap:10 }}><h1 style={{ fontSize:18, fontWeight:700, margin:0 }}>COGS Analysis</h1><ReportsClient period={period} /></div>
+        <div className="muted" style={{ fontSize:12, marginBottom:12 }}>HPP {formatRupiah(kpi.hpp)} • {hppRatio.toFixed(1)}% of {formatRupiah(kpi.revenue)} revenue • <span style={{ background:health.bg, color:health.color, padding:"2px 8px", borderRadius:999, fontWeight:700 }}>{health.label}</span> • {kpi.transactionCount} trx</div>
+
+        <div className="grid-kpi" style={{ marginBottom:12 }}>
+          <div className="card kpi" style={{ padding:14 }}><div className="kpi-label">HPP / COGS</div><div className="kpi-value" style={{ fontSize:20 }}>{formatRupiah(kpi.hpp)}</div><div className="delta">{hppRatio.toFixed(1)}% of revenue</div><div style={{ height:4, background:"var(--surface2)", borderRadius:999, marginTop:8 }}><div style={{ width:`${Math.min(100,hppRatio)}%`, height:"100%", background:health.color as string, borderRadius:999 }} /></div></div>
+          <div className="card kpi" style={{ padding:14 }}><div className="kpi-label">Gross Profit</div><div className="kpi-value positive" style={{ fontSize:20 }}>{formatRupiah(kpi.grossProfit)}</div><div className="delta">Margin {kpi.grossMargin.toFixed(1)}%</div></div>
+          <div className="card kpi" style={{ padding:14 }}><div className="kpi-label">HPP per Trx</div><div className="kpi-value" style={{ fontSize:20 }}>{kpi.transactionCount? formatRupiah(Math.round(kpi.hpp/kpi.transactionCount)) : "-"}</div><div className="delta">{kpi.transactionCount} transaksi</div></div>
+        </div>
+
+        {/* COGS trend per day */}
+        <div className="card" style={{ padding:16, marginBottom:12 }}>
+          <div style={{ fontWeight:700, fontSize:13 }}>Tren HPP Harian</div>
+          <div className="muted" style={{ fontSize:11, marginBottom:10 }}>Abu = HPP • Hijau = Gross — tinggi = Revenue • {period}</div>
+          <div style={{ display:"flex", alignItems:"flex-end", gap:8, height:110 }}>
+            {sales.length ? sales.slice(-14).map((s,i,arr)=>{
+              const max = maxRevDay;
+              const totalH = Math.max(12, (s.revenue/max)*90);
+              const hppH = s.revenue? (s.hpp/s.revenue)*totalH : 0;
+              const grossH = totalH - hppH;
+              return (
+                <div key={s.date} style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"flex-end", height: totalH+"%", gap:1 }}>
+                  <div style={{ height: grossH+"%", background: i===arr.length-1?"var(--green)":"#C8E6C9", borderRadius:"6px 6px 0 0" }} title={`${s.date} Gross ${formatRupiah(s.gross)}`} />
+                  <div style={{ height: hppH+"%", background: i===arr.length-1?"var(--accent)":"#E5D5C5", borderRadius: grossH<4?"6px 6px 0 0":"0" }} title={`${s.date} HPP ${formatRupiah(s.hpp)}`} />
+                </div>
+              );
+            }) : <div className="muted" style={{ padding:20 }}>Belum ada penjualan</div>}
+          </div>
+          <div style={{ display:"flex", gap:6, marginTop:10, flexWrap:"wrap" }}>
+            {sales.slice(-7).map(s=> <span key={s.date} className="muted" style={{ fontSize:10 }}>{String(s.date).slice(5)}: {formatRupiahShort(s.hpp)}</span>)}
+          </div>
+        </div>
+
+        {/* HPP by product — top contributors */}
+        <div className="card" style={{ padding:16, marginBottom:12 }}>
+          <div style={{ fontWeight:700, fontSize:13 }}>HPP per Produk (Top COGS)</div>
+          <div className="muted" style={{ fontSize:11, marginBottom:10 }}>Urut penyumbang HPP terbesar — fokus efisiensi</div>
+          <div style={{ display:"grid", gap:10 }}>
+            {[...products].sort((a,b)=>b.hpp-a.hpp).slice(0,8).map(p=>{
+              const hppPct = p.revenue? (p.hpp/p.revenue*100):0;
+              const maxHpp = Math.max(...products.map(x=>x.hpp),1);
+              const w = (p.hpp/maxHpp)*100;
+              return (
+                <div key={p.product_id}>
+                  <div style={{ display:"flex", justifyContent:"space-between", fontSize:12 }}>
+                    <b>{p.product_name}</b><span className="muted">{formatRupiah(p.hpp)} • {hppPct.toFixed(0)}% HPP</span>
+                  </div>
+                  <div style={{ height:8, background:"var(--surface2)", borderRadius:999, marginTop:4, overflow:"hidden", display:"flex" }}>
+                    <div style={{ width:`${w}%`, background:"var(--warning)", borderRadius:999 }} />
+                  </div>
+                  <div className="muted" style={{ fontSize:11, marginTop:2 }}>{p.sold} terjual • Rev {formatRupiah(p.revenue)} • Gross {formatRupiah(p.gross)}</div>
+                </div>
+              );
+            })}
+            {!products.length && <div className="muted" style={{ textAlign:"center" }}>Belum ada data</div>}
+          </div>
+        </div>
+
+        {/* HPP by category */}
+        {byCategory.length>0 && (
+          <div className="card" style={{ padding:16, marginBottom:12 }}>
+            <div style={{ fontWeight:700, fontSize:13 }}>HPP per Kategori</div>
+            <div className="muted" style={{ fontSize:11, marginBottom:10 }}>Kategori mana paling boros bahan</div>
+            <div style={{ display:"grid", gap:10 }}>
+              {byCategory.map(c=>{
+                const max = Math.max(...byCategory.map(x=>x.hpp),1);
+                const w = (c.hpp/max)*100;
+                return (
+                  <div key={c.category}>
+                    <div style={{ display:"flex", justifyContent:"space-between", fontSize:12 }}><b>{c.category}</b><span className="muted">{formatRupiah(c.hpp)} ({c.hppRatio.toFixed(1)}%)</span></div>
+                    <div style={{ height:8, background:"var(--surface2)", borderRadius:999, marginTop:4 }}><div style={{ width:`${w}%`, height:"100%", background:"var(--accent)", borderRadius:999 }} /></div>
+                    <div className="muted" style={{ fontSize:11, marginTop:2 }}>{c.sold} pcs • Rev {formatRupiah(c.revenue)} • Gross {formatRupiah(c.gross)}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Variance: resep vs simpan */}
+        <div className="card" style={{ padding:16, marginBottom:12 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <div><div style={{ fontWeight:700, fontSize:13 }}>Recipe ↔ HPP Variance</div><div className="muted" style={{ fontSize:11 }}>HPP tersimpan vs HPP dari resep (avg_cost terkini)</div></div>
+            <span style={{ fontSize:11, fontWeight:700, background: variance.counts.drift? "var(--warning-soft)":"var(--green-soft)", color: variance.counts.drift?"var(--warning)":"var(--green)", padding:"4px 10px", borderRadius:999 }}>{variance.counts.drift} drift • {variance.counts.noRecipe} tanpa resep</span>
+          </div>
+          <div style={{ display:"grid", gap:8, marginTop:12 }}>
+            {variance.items.slice(0,12).map((v:any)=>(
+              <div key={v.product_id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 12px", background: v.status==="DRIFT"?"var(--warning-soft)": v.status==="NO_RECIPE"?"#FFF7E5":"var(--green-soft)", border:`1px solid ${v.status==="DRIFT"?"#FED7AA": v.status==="NO_RECIPE"?"#FED7AA":"#BBF7D0"}`, borderRadius:12, gap:12 }}>
+                <div style={{ minWidth:0, flex:1 }}>
+                  <div style={{ fontWeight:700, fontSize:13, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{v.product_name} <span className="muted" style={{ fontWeight:400, fontSize:11 }}>• {v.category_name}</span></div>
+                  <div className="muted" style={{ fontSize:11, marginTop:2 }}>{v.has_recipe ? `${(v.recipe_items as any[]).map((r:any)=>`${r.name} ${r.quantity}${r.unit}`).join(" • ")}` : "Belum ada resep"}</div>
+                  <div style={{ fontSize:11, marginTop:4 }}>{v.has_recipe ? <><b>{formatRupiah(v.stored_cost)}</b> vs resep <b>{formatRupiah(v.recipe_cost)}</b> {v.diffPct!=null && <span style={{ color: v.status==="DRIFT"?"var(--warning)":"var(--green)", fontWeight:700 }}>({(v.diffPct as number)>0?"+":""}{(v.diffPct as number).toFixed(1)}%)</span>} </> : <span className="muted">Set HPP resep agar stok auto</span>}</div>
+                </div>
+                <div style={{ textAlign:"right", flexShrink:0 }}>
+                  <div style={{ fontSize:11, fontWeight:800, color: v.status==="DRIFT"?"var(--warning)": v.status==="OK"?"var(--green)":"var(--muted)" }}>{v.status==="DRIFT"?"DRIFT": v.status==="NO_RECIPE"?"NO RECIPE": v.status==="NO_STOCK_COST"?"NO COST":"OK"}</div>
+                  {v.status==="DRIFT" && <a href="/products" style={{ fontSize:11, fontWeight:700, color:"var(--warning)" }}>Perbaiki →</a>}
+                </div>
+              </div>
+            ))}
+            {!variance.items.length && <div className="muted" style={{ textAlign:"center", padding:12 }}>Belum ada produk</div>}
+          </div>
+          <div style={{ display:"flex", gap:8, marginTop:12 }}><a href="/products" className="btn" style={{ flex:1 }}>Kelola Products</a><a href="/inventory" className="btn" style={{ flex:1 }}>Cek Inventory</a></div>
+        </div>
+
+        <div style={{ display:"flex", gap:8, justifyContent:"center", marginTop:12, flexWrap:"wrap" }}>
+          <a href="/reports" className="btn">P&L ▸</a>
+          <a href="/reports?view=products" className="btn">Product Performance ▸</a>
+          <a href="/dashboard" className="btn accent">Dashboard</a>
+        </div>
+        <FeatureTourClient tour={REPORTS_TOUR} />
+      </div>
+    );
+  }
 
   // If view=products, show visual product performance
   if (view==="products") {
@@ -206,7 +332,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: { pe
           </div>
         </div>
       </div>
-      <div style={{ marginTop:16, textAlign:"center" }}><a href="/reports?view=products" className="btn">Lihat Product Performance →</a></div>
+      <div style={{ marginTop:16, display:"flex", gap:8, justifyContent:"center", flexWrap:"wrap" }}><a href="/reports?view=products" className="btn">Lihat Product Performance →</a><a href="/reports?view=cogs" className="btn accent">COGS Analysis →</a></div>
       <FeatureTourClient tour={REPORTS_TOUR} />
     </div>
   );

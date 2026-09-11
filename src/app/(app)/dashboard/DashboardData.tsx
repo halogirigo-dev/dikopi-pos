@@ -1,16 +1,21 @@
 import { getFinancialKPI, getSalesReport, getProductPerformance } from "@/lib/finance";
 import { getDateRange, formatRupiah } from "@/lib/utils";
 import { getInventoryOverview } from "@/lib/inventory";
+import { getCogsVariance, getCogsByCategory } from "@/lib/cogs";
 
 export default async function DashboardData({ period }: { period: string }) {
   const { from, to } = getDateRange(period);
-  const [kpi, sales, topProducts] = await Promise.all([
+  const [kpi, sales, topProducts, invOverview, cogsVariance, byCategory] = await Promise.all([
     getFinancialKPI(from, to),
     getSalesReport(from, to),
     getProductPerformance(from, to),
+    getInventoryOverview(30).catch(()=>null),
+    getCogsVariance(10).catch(()=>({ items:[], counts:{total:0,ok:0,drift:0,noRecipe:0}, driftTotalDiff:0 } as any)),
+    getCogsByCategory(from,to).catch(()=>[]),
   ]);
-  let invOverview: any = null;
-  try { invOverview = await getInventoryOverview(30); } catch { invOverview = null; }
+  const hppRatio = kpi.revenue ? (kpi.hpp / kpi.revenue)*100 : 0;
+  const hppHealth = !kpi.revenue ? {label:"-", color:"var(--muted)", bg:"var(--surface2)"} : hppRatio <= 35 ? {label:"Sehat", color:"var(--green)", bg:"var(--green-soft)"} : hppRatio <= 50 ? {label:"Cukup", color:"var(--warning)", bg:"var(--warning-soft)"} : {label:"Tipis", color:"var(--red)", bg:"var(--red-soft)"};
+  const topByHpp = [...topProducts].sort((a,b)=> b.hpp - a.hpp).slice(0,3);
 
   return (
     <div style={{ display:"grid", gap:8 }}>
@@ -22,22 +27,105 @@ export default async function DashboardData({ period }: { period: string }) {
       </div>
 
       <div data-onboarding="dash-kpi" className="grid-kpi">
-        <div className="card kpi" style={{ padding:14 }}><div className="kpi-label">HPP</div><div className="kpi-value" style={{ fontSize:20, fontVariantNumeric:"tabular-nums" as any }}>{formatRupiah(kpi.hpp)}</div><div className="delta">{kpi.revenue ? ((kpi.hpp / kpi.revenue) * 100).toFixed(1) : 0}% of revenue</div></div>
-        <div className="card kpi" style={{ padding:14 }}><div className="kpi-label">Gross Profit</div><div className="kpi-value positive" style={{ fontSize:20, fontVariantNumeric:"tabular-nums" as any }}>{formatRupiah(kpi.grossProfit)}</div><div className="delta">Margin {kpi.grossMargin.toFixed(1)}%</div></div>
-        <div className="card kpi" style={{ padding:14 }}><div className="kpi-label">Expense</div><div className="kpi-value" style={{ fontSize:20, fontVariantNumeric:"tabular-nums" as any }}>{formatRupiah(kpi.totalExpense)}</div><div className="delta">Operasional</div></div>
-        <div className="card kpi" style={{ padding:14 }}><div className="kpi-label">Net Profit</div><div className={`kpi-value ${kpi.netProfit >= 0 ? "positive" : "negative"}`} style={{ fontSize:20, fontVariantNumeric:"tabular-nums" as any }}>{formatRupiah(kpi.netProfit)}</div><div className="delta">{kpi.revenue ? ((kpi.netProfit / kpi.revenue) * 100).toFixed(1) : 0}% net</div></div>
+        <div className="card kpi" style={{ padding:14, position:"relative", overflow:"hidden" }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <div className="kpi-label">HPP / COGS</div>
+            <span style={{ fontSize:10, fontWeight:800, padding:"3px 8px", borderRadius:999, background:hppHealth.bg, color:hppHealth.color, letterSpacing:".06em" }}>{hppHealth.label}</span>
+          </div>
+          <div className="kpi-value" style={{ fontSize:20, fontVariantNumeric:"tabular-nums" as any }}>{formatRupiah(kpi.hpp)}</div>
+          <div className="delta">{hppRatio.toFixed(1)}% of revenue • {kpi.revenue ? `${formatRupiah(kpi.hpp)}/${formatRupiah(kpi.revenue)}` : "no revenue"}</div>
+          <div style={{ height:4, background:"var(--surface2)", borderRadius:999, marginTop:8, overflow:"hidden" }}>
+            <div style={{ width:`${Math.min(100, hppRatio)}%`, height:"100%", background: hppHealth.color as string, borderRadius:999 }} />
+          </div>
+          <a href="/reports?view=cogs" style={{ fontSize:11, fontWeight:700, color:"var(--accent)", marginTop:6, display:"inline-block" }}>Detail COGS →</a>
+        </div>
+        <div className="card kpi" style={{ padding:14 }}><div className="kpi-label">Gross Profit</div><div className="kpi-value positive" style={{ fontSize:20, fontVariantNumeric:"tabular-nums" as any }}>{formatRupiah(kpi.grossProfit)}</div><div className="delta">Margin {kpi.grossMargin.toFixed(1)}% • HPP {hppRatio.toFixed(1)}%</div></div>
+        <div className="card kpi" style={{ padding:14 }}><div className="kpi-label">Expense</div><div className="kpi-value" style={{ fontSize:20, fontVariantNumeric:"tabular-nums" as any }}>{formatRupiah(kpi.totalExpense)}</div><div className="delta">Operasional • {kpi.revenue? ((kpi.totalExpense/kpi.revenue)*100).toFixed(1):0}% of rev</div></div>
+        <div className="card kpi" style={{ padding:14 }}><div className="kpi-label">Net Profit</div><div className={`kpi-value ${kpi.netProfit >= 0 ? "positive" : "negative"}`} style={{ fontSize:20, fontVariantNumeric:"tabular-nums" as any }}>{formatRupiah(kpi.netProfit)}</div><div className="delta">{kpi.revenue ? ((kpi.netProfit / kpi.revenue) * 100).toFixed(1) : 0}% net • after HPP</div></div>
       </div>
 
-      <div data-onboarding="dash-chart" className="card">
-        <div className="card-head"><div className="card-title">Ringkasan Penjualan</div><div className="muted">{period}</div></div>
-        <div style={{ padding: 16, display: "flex", alignItems: "flex-end", gap: 8, height: 120 }}>
-          {sales.length ? sales.slice(-7).map((s, i, arr) => {
-            const max = Math.max(...sales.map(x => x.revenue), 1);
-            const h = Math.max(12, (s.revenue / max) * 90);
-            return <div key={s.date} style={{ flex: 1, background: i === arr.length - 1 ? "var(--accent)" : "var(--border)", borderRadius: "6px 6px 0 0", height: `${h}%`, minHeight: 12 }} title={`${s.date}: ${formatRupiah(s.revenue)}`} />;
-          }) : <div className="muted" style={{ padding: 20 }}>Belum ada penjualan</div>}
+      {/* Warning Card — ultra-minimal for UMKM owners */}
+      {cogsVariance && (cogsVariance.counts.drift > 0 || cogsVariance.counts.noRecipe > 0) && (
+        <div className="card" style={{ padding:16, borderColor:"var(--warning)", background:"var(--warning-soft)" }}>
+          <div style={{ fontSize:14, fontWeight:700 }}>⚠️ Cek Harga Modal</div>
+          <div className="muted" style={{ fontSize:12, marginTop:6, lineHeight:"18px" }}>Ada perbedaan harga modal di sistem dengan resep.</div>
+          <a href="/products" className="btn accent" style={{ width:"100%", marginTop:14, minHeight:44, fontSize:14, borderRadius:12, fontWeight:700 }}>Perbaiki Sekarang</a>
         </div>
-        <div className="muted" style={{ padding: "0 16px 12px", fontSize: 11 }}>7 hari terakhir · Cashflow In {formatRupiah(kpi.cashInflow)} / Out {formatRupiah(kpi.cashOutflow)}</div>
+      )}
+
+      <div data-onboarding="dash-chart" className="card" style={{ overflow:"hidden" }}>
+        <div className="card-head" style={{ borderBottom:"none", paddingBottom:8 }}><div className="card-title" style={{ fontSize:16, fontWeight:800 }}>Keuangan Hari Ini</div></div>
+        {/* 3 large highlight numbers — answer: money in / spent / left */}
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, padding:"0 16px 14px" }}>
+          <div style={{ background:"var(--surface2)", borderRadius:14, padding:"14px 12px" }}>
+            <div style={{ fontSize:11, fontWeight:700, color:"var(--muted)", letterSpacing:".06em" }}>OMSET</div>
+            <div style={{ fontSize:20, fontWeight:800, marginTop:4, letterSpacing:"-.02em", fontVariantNumeric:"tabular-nums" as any }}>{formatRupiah(kpi.revenue)}</div>
+            <div className="muted" style={{ fontSize:11, marginTop:2 }}>Uang masuk</div>
+          </div>
+          <div style={{ background:"var(--surface2)", borderRadius:14, padding:"14px 12px" }}>
+            <div style={{ fontSize:11, fontWeight:700, color:"var(--muted)", letterSpacing:".06em" }}>MODAL</div>
+            <div style={{ fontSize:20, fontWeight:800, marginTop:4, letterSpacing:"-.02em", fontVariantNumeric:"tabular-nums" as any }}>{formatRupiah(kpi.hpp)}</div>
+            <div className="muted" style={{ fontSize:11, marginTop:2 }}>Uang keluar</div>
+          </div>
+          <div style={{ gridColumn:"1 / -1", background:"var(--primary)", color:"#fff", borderRadius:14, padding:"16px 14px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <div>
+              <div style={{ fontSize:11, fontWeight:800, letterSpacing:".08em", opacity:.7 }}>SISA UANG</div>
+              <div style={{ fontSize:11, opacity:.6, marginTop:2 }}>Kas bersih</div>
+            </div>
+            <div style={{ fontSize:26, fontWeight:900, letterSpacing:"-.03em", fontVariantNumeric:"tabular-nums" as any }}>{formatRupiah(kpi.grossProfit)}</div>
+          </div>
+        </div>
+        {/* Minimal chart — no legend, no dates, spacious */}
+        <div style={{ padding:"0 16px 16px" }}>
+          <div style={{ display:"flex", alignItems:"flex-end", gap:6, height:80 }}>
+            {sales.length ? sales.slice(-7).map((s, i) => {
+              const max = Math.max(...sales.map(x => x.revenue), 1);
+              const totalH = Math.max(10, (s.revenue / max) * 80);
+              const hppH = s.revenue ? (s.hpp / s.revenue) * totalH : 0;
+              const grossH = totalH - hppH;
+              return (
+                <div key={s.date} style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"flex-end", height: totalH+"%", minHeight:10, gap:1, borderRadius:6, overflow:"hidden" }}>
+                  <div style={{ height: grossH+"%", background: i===6 ? "var(--primary)" : "var(--border)", minHeight: grossH>2?2:0 }} />
+                  <div style={{ height: hppH+"%", background: i===6 ? "var(--accent)" : "#E8DDD3", minHeight: hppH>2?2:0 }} />
+                </div>
+              );
+            }) : <div className="muted" style={{ padding:12, fontSize:12 }}>Belum ada penjualan</div>}
+          </div>
+        </div>
+      </div>
+
+      {/* Breakdown — ultra-minimal */}
+      <div className="card">
+        <div className="card-head"><div className="card-title">Rincian Modal</div></div>
+        <div style={{ padding: "12px 16px", display:"grid", gap:10 }}>
+          {topByHpp.length ? topByHpp.map((p)=>{
+            const maxHpp = Math.max(...topByHpp.map(x=>x.hpp),1);
+            const w = (p.hpp / maxHpp)*100;
+            const ratio = p.revenue ? (p.hpp/p.revenue*100).toFixed(0) : 0;
+            return (
+              <div key={p.product_id}>
+                <div style={{ display:"flex", justifyContent:"space-between", fontSize:12 }}>
+                  <b style={{ fontSize:13 }}>{p.product_name}</b>
+                  <span className="muted">{ratio}% HPP • {formatRupiah(p.hpp)}</span>
+                </div>
+                <div style={{ height:8, background:"var(--surface2)", borderRadius:999, marginTop:6, overflow:"hidden", display:"flex" }}>
+                  <div style={{ width:`${w}%`, background:"var(--warning)", borderRadius:999 }} title={`HPP ${formatRupiah(p.hpp)}`} />
+                </div>
+                <div className="muted" style={{ fontSize:11, marginTop:3 }}>{p.sold} terjual • {formatRupiah(p.revenue)} revenue</div>
+              </div>
+            );
+          }) : <div className="muted" style={{ padding:16, textAlign:"center" }}>Belum ada pengeluaran.</div>}
+          {byCategory.length > 0 && (
+            <div style={{ borderTop:"1px solid var(--border)", marginTop:4, paddingTop:10 }}>
+              <div style={{ fontSize:11, fontWeight:700, color:"var(--muted)", letterSpacing:".06em", marginBottom:8 }}>HPP PER KATEGORI</div>
+              {byCategory.slice(0,3).map(c=>(
+                <div key={c.category} style={{ display:"flex", justifyContent:"space-between", fontSize:12, padding:"4px 0" }}>
+                  <span>{c.category}</span><span><b>{formatRupiah(c.hpp)}</b> <span className="muted">({c.hppRatio.toFixed(0)}%)</span></span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="card">

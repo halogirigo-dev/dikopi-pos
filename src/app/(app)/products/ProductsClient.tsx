@@ -55,6 +55,37 @@ export default function ProductsClient({ categories, products: initial }: { cate
     if(res.ok){ alert("Resep disimpan"); const arr = await res.json(); setRecipeMap(prev=> ({...prev, [recipeFor]:arr})); setRecipeFor(null);} else alert(await res.text());
   }
 
+  // COGS integration: compute recipe-derived cost per product
+  function recipeCostFor(pid: string): number | null {
+    const rec = recipeMap[pid];
+    if (!rec || !rec.length) return null;
+    let sum = 0;
+    let hasAll = true;
+    for (const r of rec) {
+      const inv = inventoryItems.find((x:any)=>(x.id||x.inventory_item_id)===r.inventory_item_id);
+      const avg = inv ? Number(inv.average_cost ?? inv.averageCost ?? 0) : Number(r.inventory_item?.average_cost ?? 0);
+      if (!avg) hasAll = false;
+      sum += Number(r.quantity) * (avg || 0);
+    }
+    // if no avg_cost yet, still return sum (may be 0) but mark as partial
+    return Math.round(sum);
+  }
+  function driftFor(p: Product){
+    const rc = recipeCostFor(p.id);
+    if (rc == null) return null;
+    const diff = p.cost_price - rc;
+    const pct = rc ? (diff/rc)*100 : null;
+    const absPct = pct!=null ? Math.abs(pct) : 0;
+    const alt = p.cost_price ? Math.abs(diff/p.cost_price)*100 : absPct;
+    const drift = rc>0 && (Math.abs(pct!)>10 || alt>10);
+    return { rc, diff, pct, drift };
+  }
+  // form preview: if editing, use that product's recipe; else try live preview from current form? We'll show for editing only + live for selected product in form
+  const formRecipeCost = (() => {
+    if (editing) return recipeCostFor(editing.id);
+    return null;
+  })();
+
   const filtered = initial.filter(p=> !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.category.name.toLowerCase().includes(search.toLowerCase()));
 
   function openCreate(){
@@ -89,6 +120,7 @@ export default function ProductsClient({ categories, products: initial }: { cate
           const m=calcMargin(p.selling_price, p.selling_price - p.cost_price);
           const recipe = recipeMap[p.id] || [];
           const hasRecipe = recipe.length>0;
+          const drift = driftFor(p);
           return (
             <div key={p.id} className="card" style={{ padding:16 }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
@@ -100,6 +132,16 @@ export default function ProductsClient({ categories, products: initial }: { cate
                 <div data-onboarding={filtered.indexOf(p)===0 ? "products-hpp" : undefined}><div className="muted" style={{ fontSize:11 }}>HPP</div><div style={{ fontWeight:700 }}>{formatRupiah(p.cost_price)}</div></div>
               </div>
               <div className="muted" style={{ fontSize:12, marginTop:8 }}>Margin {m.toFixed(1)}% • Gross {formatRupiah(p.selling_price - p.cost_price)}</div>
+              {/* COGS truth: recipe cost vs stored */}
+              {drift && hasRecipe && (
+                <div style={{ marginTop:8, background: drift.drift ? "var(--warning-soft)" : "var(--green-soft)", border:`1px solid ${drift.drift ? "#FED7AA" : "#BBF7D0"}`, borderRadius:10, padding:"8px 10px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                  <div>
+                    <div style={{ fontSize:11, fontWeight:800, color: drift.drift ? "#B45309" : "var(--green)" }}>{drift.drift ? "⚠️ HPP drift" : "✓ HPP sinkron"}</div>
+                    <div className="muted" style={{ fontSize:11 }}>Resep {formatRupiah(drift.rc!)} • {drift.pct!=null ? `${drift.pct>0?"+":""}${drift.pct.toFixed(1)}%` : "-"} dari simpan</div>
+                  </div>
+                  {drift.drift && <button className="btn" style={{ minHeight:32, padding:"6px 10px", fontSize:11, background:"#fff", borderColor:"var(--warning)", color:"var(--warning)" }} onClick={()=>{ setForm(prev=> ({...prev, cost_price:String(drift.rc)})); setEditing(p); setShowForm(true); }}>Sync {formatRupiah(drift.rc!)}</button>}
+                </div>
+              )}
               <div style={{ marginTop:10, background: hasRecipe?"var(--green-soft)":"#FFF7E5", border:`1px solid ${hasRecipe?"#BBF7D0":"#FED7AA"}`, borderRadius:10, padding:"8px 10px" }}>
                 <div style={{ fontSize:11, fontWeight:800, color:hasRecipe?"var(--green)":"#B45309", letterSpacing:".06em" }}>{hasRecipe? "✓ Recipe terkonfigurasi" : "⚠ Recipe belum dikonfigurasi"}</div>
                 {hasRecipe ? <div className="muted" style={{ fontSize:11, marginTop:4 }}>{recipe.map((r:any)=> `${r.inventory_item.name} ${Number(r.quantity)}${r.inventory_item.unit}`).join(" • ")}</div>
@@ -122,12 +164,13 @@ export default function ProductsClient({ categories, products: initial }: { cate
             {filtered.map(p=>{
               const m=calcMargin(p.selling_price, p.selling_price - p.cost_price);
               const recipe = recipeMap[p.id] || [];
+              const drift = driftFor(p);
               return (
                 <tr key={p.id}>
-                  <td><b>{p.name}</b><div className="muted" style={{ fontSize:11 }}>{recipe.length? recipe.map((r:any)=>`${r.inventory_item.name} ${Number(r.quantity)}${r.inventory_item.unit}`).join(" • ") : "⚠ no recipe"}</div></td>
+                  <td><b>{p.name}</b><div className="muted" style={{ fontSize:11 }}>{recipe.length? recipe.map((r:any)=>`${r.inventory_item.name} ${Number(r.quantity)}${r.inventory_item.unit}`).join(" • ") : "⚠ no recipe"}</div>{drift && recipe.length>0 && <div style={{ fontSize:11, marginTop:2, color:drift.drift?"var(--warning)":"var(--green)", fontWeight:600 }}>{drift.drift?"⚠️":"✓"} Resep {formatRupiah(drift.rc!)} {drift.pct!=null?`(${drift.pct>0?"+":""}${drift.pct.toFixed(1)}%)`:""}</div>}</td>
                   <td>{p.category.name}</td>
                   <td>{formatRupiah(p.selling_price)}</td>
-                  <td>{formatRupiah(p.cost_price)}</td>
+                  <td>{formatRupiah(p.cost_price)}{drift?.drift && <div style={{ fontSize:10, color:"var(--warning)", fontWeight:700 }}>drift</div>}</td>
                   <td>{m.toFixed(1)}%</td>
                   <td>{p.is_available ? <span className="badge">Available</span> : <span className="badge red">Hidden</span>}</td>
                   <td>
@@ -173,7 +216,19 @@ export default function ProductsClient({ categories, products: initial }: { cate
               <div className="field" style={{ minWidth:0 }}><label>Kategori *</label><select className="input" style={{ minWidth:0 }} value={form.category_id} onChange={e=>setForm({...form,category_id:e.target.value})}><option value="">Pilih</option>{categories.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
               <div className="field" style={{ minWidth:0 }}><label>Status</label><select className="input" style={{ minWidth:0 }} value={String(form.is_available)} onChange={e=>setForm({...form,is_available:e.target.value==="true"})}><option value="true">Tersedia</option><option value="false">Hidden</option></select></div>
               <div className="field" style={{ minWidth:0 }}><label>Harga Jual *</label><input className="input" style={{ minWidth:0 }} type="number" inputMode="numeric" value={form.selling_price} onChange={e=>setForm({...form,selling_price:e.target.value})} placeholder="18000" /></div>
-              <div className="field" style={{ minWidth:0 }}><label>HPP *</label><input data-onboarding="products-hpp-input" className="input" style={{ minWidth:0 }} type="number" inputMode="numeric" value={form.cost_price} onChange={e=>setForm({...form,cost_price:e.target.value})} placeholder="6000" /></div>
+              <div className="field" style={{ minWidth:0 }}><label>HPP *  <span className="muted" style={{ fontWeight:400, fontSize:11 }}>(tersimpan)</span></label><input data-onboarding="products-hpp-input" className="input" style={{ minWidth:0 }} type="number" inputMode="numeric" value={form.cost_price} onChange={e=>setForm({...form,cost_price:e.target.value})} placeholder="6000" />
+                {formRecipeCost!=null && (
+                  <div style={{ marginTop:6, background:"var(--surface2)", border:"1px solid var(--border)", borderRadius:10, padding:"8px 10px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:8 }}>
+                    <div>
+                      <div style={{ fontSize:11, fontWeight:800, color:"var(--text2)" }}>HPP dari resep</div>
+                      <div style={{ fontSize:12, fontWeight:700 }}>{formatRupiah(formRecipeCost)} <span className="muted" style={{ fontSize:11 }}>• avg_cost terkini</span></div>
+                      {form.cost_price && Number(form.cost_price)!==formRecipeCost && <div className="muted" style={{ fontSize:11, color: Math.abs(Number(form.cost_price)-formRecipeCost)/Math.max(formRecipeCost,1) >0.1 ? "var(--warning)" : "var(--green)" }}>{Number(form.cost_price)>formRecipeCost?"+":""}{formatRupiah(Number(form.cost_price)-formRecipeCost)} • {formRecipeCost? (((Number(form.cost_price)-formRecipeCost)/formRecipeCost)*100).toFixed(1):0}%</div>}
+                    </div>
+                    <button type="button" className="btn accent" style={{ minHeight:36, padding:"6px 12px", fontSize:12, whiteSpace:"nowrap" }} onClick={()=> setForm({...form, cost_price:String(formRecipeCost)})}>Pakai {formatRupiah(formRecipeCost)}</button>
+                  </div>
+                )}
+                {formRecipeCost==null && editing && <div className="muted" style={{ fontSize:11, marginTop:6 }}>Belum ada resep — buat resep dulu agar HPP auto dari stok</div>}
+              </div>
               <div className="field full" style={{ minWidth:0 }}><label>Image URL <span className="muted" style={{ fontWeight:400 }}>(opsional)</span></label><input className="input" style={{ minWidth:0 }} value={form.image_url} onChange={e=>setForm({...form,image_url:e.target.value})} placeholder="https://..." /></div>
               <div className="field full" style={{ minWidth:0 }}>
                 <button data-onboarding="products-calc" className="btn" style={{ width:"100%", minHeight:44 }} onClick={()=>setShowCalc(!showCalc)}>🧮 Hitung HPP {showCalc?"−":"+"}</button>
@@ -208,6 +263,29 @@ export default function ProductsClient({ categories, products: initial }: { cate
               <button className="btn" style={{ minHeight:36, padding:"6px 10px" }} onClick={()=>setRecipeFor(null)}>✕</button>
             </div>
             <div className="muted" style={{ fontSize:11, marginBottom:10 }}>Setiap 1 {initial.find(x=>x.id===recipeFor)?.name} terjual akan mengurangi stock sesuai recipe di atas.</div>
+            {(() => {
+              let total = 0;
+              for (const rd of recipeDraft) {
+                const inv = inventoryItems.find((x:any)=>(x.id||x.inventory_item_id)===rd.inventory_item_id);
+                const avg = inv ? Number(inv.average_cost ?? inv.averageCost ?? 0) : 0;
+                total += (Number(rd.quantity)||0) * avg;
+              }
+              const prod = initial.find(x=>x.id===recipeFor);
+              const stored = prod ? prod.cost_price : 0;
+              return total>0 ? (
+                <div style={{ background:"var(--surface2)", border:"1px solid var(--border)", borderRadius:12, padding:"10px 12px", marginBottom:10, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                  <div><div style={{ fontSize:11, fontWeight:800, color:"var(--muted)" }}>HPP DARI RESEP (live)</div><div style={{ fontSize:13, fontWeight:800 }}>{formatRupiah(Math.round(total))} <span className="muted" style={{ fontSize:11 }}>• {recipeDraft.filter(x=>x.inventory_item_id && Number(x.quantity)>0).length} bahan</span></div><div className="muted" style={{ fontSize:11 }}>Tersimpan {formatRupiah(stored)} {stored? `• ${(((Math.round(total)-stored)/Math.max(stored,1))*100).toFixed(1)}%` : ""}</div></div>
+                  <button className="btn" style={{ minHeight:36, fontSize:12 }} onClick={async()=>{
+                    const p = initial.find(x=>x.id===recipeFor);
+                    if(!p) return;
+                    // quick sync: update product cost_price to recipe total
+                    if(!confirm(`Update HPP ${p.name} dari ${formatRupiah(p.cost_price)} → ${formatRupiah(Math.round(total))}?`)) return;
+                    const res = await fetch(`/api/products/${p.id}`, {method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ name:p.name, category_id:p.category_id, selling_price:p.selling_price, cost_price:Math.round(total), hpp_breakdown:p.hpp_breakdown, image_url:p.image_url, is_available:p.is_available })});
+                    if(res.ok){ alert("HPP diperbarui"); location.reload(); } else alert(await res.text());
+                  }}>Sync HPP</button>
+                </div>
+              ) : null;
+            })()}
             {recipeDraft.map((r,idx)=> (
               <div key={idx} style={{ display:"flex", gap:8, marginBottom:8, alignItems:"center" }}>
                 <select className="input" style={{ flex:"1 1 0" }} value={r.inventory_item_id} onChange={e=>{ const nd=[...recipeDraft]; nd[idx].inventory_item_id=e.target.value; setRecipeDraft(nd); }}>
