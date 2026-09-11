@@ -8,7 +8,14 @@ export async function GET(req: Request) {
   if (!session) return new Response("Unauthorized", { status: 401 });
   const { searchParams } = new URL(req.url);
   const product_id = searchParams.get("product_id");
-  if (!product_id) return new Response("Missing product_id", { status: 400 });
+  // If no product_id, return all recipes grouped — used by POS to show NO RECIPE badge live
+  if (!product_id) {
+    const all = await prisma.recipeItem.findMany({
+      select: { product_id: true },
+    });
+    const ids = Array.from(new Set(all.map(r=>r.product_id)));
+    return Response.json({ productIdsWithRecipe: ids });
+  }
   const items = await prisma.recipeItem.findMany({
     where: { product_id },
     include: { inventory_item: { select: { id: true, name: true, unit: true, current_stock: true, sku: true } } },

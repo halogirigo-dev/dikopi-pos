@@ -48,7 +48,30 @@ export default function POSClient({ categories, products, productIdsWithRecipe =
   const paidNum = Number(amountPaid.replace(/\D/g,""))||0;
   const change = payment==="CASH" && amountPaid ? paidNum - total : 0;
   const isCashInvalid = payment==="CASH" && amountPaid!=="" && paidNum < total;
-  const withRecipeSet = useMemo(()=> new Set(productIdsWithRecipe), [productIdsWithRecipe]);
+  // Live sync recipe ids — fixes stale NO RECIPE after save without hard reload
+  const [liveRecipeIds, setLiveRecipeIds] = useState<string[]>(productIdsWithRecipe);
+  useEffect(()=> { setLiveRecipeIds(productIdsWithRecipe); }, [productIdsWithRecipe]);
+  useEffect(()=>{
+    let cancelled=false;
+    async function refreshRecipes(){
+      try{
+        const res=await fetch("/api/inventory/recipes",{cache:"no-store"});
+        if(!res.ok) return;
+        const data=await res.json();
+        const ids = Array.isArray(data) ? [] : (data.productIdsWithRecipe || []);
+        if(!cancelled && ids.length) setLiveRecipeIds(ids);
+      }catch{}
+    }
+    refreshRecipes();
+    const onVis=()=> { if(document.visibilityState==="visible") refreshRecipes(); };
+    const onRefresh=()=> refreshRecipes();
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("dikopi:refresh", onRefresh);
+    window.addEventListener("focus", refreshRecipes);
+    const id=setInterval(refreshRecipes, 15000);
+    return ()=>{ cancelled=true; document.removeEventListener("visibilitychange", onVis); window.removeEventListener("dikopi:refresh", onRefresh); window.removeEventListener("focus", refreshRecipes); clearInterval(id); };
+  },[]);
+  const withRecipeSet = useMemo(()=> new Set(liveRecipeIds), [liveRecipeIds]);
   const cartWithoutRecipe = useMemo(()=> cart.items.filter((it:any)=> !withRecipeSet.has(it.product_id)), [cart.items, withRecipeSet]);
 
   async function confirm(){

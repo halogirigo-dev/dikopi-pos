@@ -1,9 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import POSClient from "./POSClient";
 import RealtimeRefresher from "@/components/RealtimeRefresher";
-// POS menu is highly interactive - allow Next.js to cache at edge for 30s while keeping correctness.
-// Revalidation ensures fresh data after product updates without hitting DB on every navigation.
-export const revalidate = 30;
+// POS must always show fresh recipe status — no cache, otherwise NO RECIPE badge stale after saving.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function POSPage() {
   const [categories, products, recipes] = await Promise.all([
