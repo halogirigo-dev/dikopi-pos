@@ -153,9 +153,9 @@ export default function InventoryClient({ initialOverview, products, windowDays 
   const [editing, setEditing] = useState<any>(null);
   const [form, setForm] = useState({ name: "", sku: "", unit: "g", current_stock: "", minimum_stock: "", target_stock: "", average_cost: "", item_type: "BASE" as "BASE" | "SEMI_FINISH" });
   const [typeFilter, setTypeFilter] = useState<"ALL" | "BASE" | "SEMI_FINISH">("ALL");
-  const [purchase, setPurchase] = useState({ inventory_item_id: "", quantity: "", unit_cost: "", note: "" });
+  const [purchase, setPurchase] = useState({ inventory_item_id: "", quantity: "", unit_cost: "", purchase_unit: "", note: "" });
   const [showPurchase, setShowPurchase] = useState(false);
-  const [adjust, setAdjust] = useState({ inventory_item_id: "", quantity: "", type: "ADJUSTMENT", note: "" });
+  const [adjust, setAdjust] = useState({ inventory_item_id: "", quantity: "", note: "", mode: "adjust" as "adjust" | "waste" });
   const [showAdjust, setShowAdjust] = useState(false);
   const [recipeProductId, setRecipeProductId] = useState<string>(products[0]?.id || "");
   const [recipeItems, setRecipeItems] = useState<any[]>([]);
@@ -303,25 +303,28 @@ export default function InventoryClient({ initialOverview, products, windowDays 
     const res = await fetch("/api/inventory/purchase", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ inventory_item_id: purchase.inventory_item_id, quantity: Number(purchase.quantity), unit_cost: Number(purchase.unit_cost), note: purchase.note }),
+      body: JSON.stringify({ inventory_item_id: purchase.inventory_item_id, quantity: Number(purchase.quantity), unit_cost: Number(purchase.unit_cost), purchase_unit: purchase.purchase_unit || undefined, note: purchase.note }),
     });
     if (res.ok) {
       setShowPurchase(false);
-      setPurchase({ inventory_item_id: "", quantity: "", unit_cost: "", note: "" });
+      setPurchase({ inventory_item_id: "", quantity: "", unit_cost: "", purchase_unit: "", note: "" });
       await refreshOverview();
       if (tab === "movements") fetchMovements();
     } else alert(await res.text());
   }
   async function doAdjust() {
     if (!adjust.inventory_item_id || !adjust.quantity) return alert("Lengkapi data");
+    const qty = Number(adjust.quantity);
+    // Waste is entered as a positive human-facing quantity (stored negative)
+    const bodyQty = adjust.mode === "waste" ? Math.abs(qty) : qty;
     const res = await fetch("/api/inventory/adjustment", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ inventory_item_id: adjust.inventory_item_id, quantity: Number(adjust.quantity), type: adjust.type, note: adjust.note }),
+      body: JSON.stringify({ inventory_item_id: adjust.inventory_item_id, quantity: bodyQty, type: adjust.mode === "waste" ? "WASTE" : "ADJUSTMENT", note: adjust.note }),
     });
     if (res.ok) {
       setShowAdjust(false);
-      setAdjust({ inventory_item_id: "", quantity: "", type: "ADJUSTMENT", note: "" });
+      setAdjust({ inventory_item_id: "", quantity: "", note: "", mode: "adjust" });
       await refreshOverview();
       if (tab === "movements") fetchMovements();
     } else alert(await res.text());
@@ -502,7 +505,7 @@ export default function InventoryClient({ initialOverview, products, windowDays 
                   {/* Actions — low noise, 40px meets tap target */}
                   <div style={{ display: "flex", gap: 8 }}>
                     <button className="btn" style={{ flex: 1, minHeight: 40, padding: "8px 10px", fontSize: 13, fontWeight: 600, borderRadius: 10 }} onClick={(e) => { e.stopPropagation(); setSelected(it); }}>Detail</button>
-                    <button className="btn accent" style={{ flex: 1, minHeight: 40, padding: "8px 10px", fontSize: 13, fontWeight: 600, borderRadius: 10 }} onClick={(e) => { e.stopPropagation(); setPurchase({ inventory_item_id: it.inventory_item_id, quantity: "", unit_cost: String(it.average_cost), note: "" }); setShowPurchase(true); }}>{isOut ? "Restock sekarang" : it.reorder_needed ? "Restock" : "Beli"}</button>
+                    <button className="btn accent" style={{ flex: 1, minHeight: 40, padding: "8px 10px", fontSize: 13, fontWeight: 600, borderRadius: 10 }} onClick={(e) => { e.stopPropagation(); setPurchase({ inventory_item_id: it.inventory_item_id, quantity: "", unit_cost: String(it.average_cost), purchase_unit: "", note: "" }); setShowPurchase(true); }}>{isOut ? "Restock sekarang" : it.reorder_needed ? "Restock" : "Beli"}</button>
                   </div>
                 </div>
               );
@@ -555,7 +558,7 @@ export default function InventoryClient({ initialOverview, products, windowDays 
                   </div>
                   <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
                     <button className="btn" style={{ flex: 1, minHeight: 40 }} onClick={() => openEdit(it)}>Edit</button>
-                    <button className="btn" style={{ flex: 1, minHeight: 40 }} onClick={() => { setPurchase({ inventory_item_id: it.inventory_item_id, quantity: "", unit_cost: String(it.average_cost), note: "" }); setShowPurchase(true); }}>Beli</button>
+                    <button className="btn" style={{ flex: 1, minHeight: 40 }} onClick={() => { setPurchase({ inventory_item_id: it.inventory_item_id, quantity: "", unit_cost: String(it.average_cost), purchase_unit: "", note: "" }); setShowPurchase(true); }}>Beli</button>
                   </div>
                 </div>
               );
@@ -728,10 +731,11 @@ export default function InventoryClient({ initialOverview, products, windowDays 
               <DepletionChart current={selected.current_stock} avgDaily={selected.avg_daily_consumption} runwayDays={selected.runway_days} hasForecast={selected.has_forecast} unit={selected.unit} />
 
               <div style={{ display: "flex", gap: 8 }}>
-                <button className="btn accent" style={{ flex: 1, minHeight: 44 }} onClick={() => { setPurchase({ inventory_item_id: selected.inventory_item_id, quantity: "", unit_cost: String(selected.average_cost), note: "" }); setSelected(null); setTimeout(() => setShowPurchase(true), 80); }}>
-                  Restock • {selected.reorder_needed ? formatRupiah(selected.reorder_cost) : "Beli"}
+                <button className="btn accent" style={{ flex: 1, minHeight: 44 }} onClick={() => { setPurchase({ inventory_item_id: selected.inventory_item_id, quantity: "", unit_cost: String(selected.average_cost), purchase_unit: "", note: "" }); setSelected(null); setTimeout(() => setShowPurchase(true), 80); }}>
+                  Purchase / Beli{selected.reorder_needed ? ` • ${formatRupiah(selected.reorder_cost)}` : ""}
                 </button>
-                <button className="btn" style={{ flex: 1, minHeight: 44 }} onClick={() => { setAdjust({ inventory_item_id: selected.inventory_item_id, quantity: "", type: "ADJUSTMENT", note: "" }); setSelected(null); setTimeout(() => setShowAdjust(true), 80); }}>Adjust / Waste</button>
+                <button className="btn" style={{ flex: 1, minHeight: 44 }} onClick={() => { setAdjust({ inventory_item_id: selected.inventory_item_id, quantity: "", note: "", mode: "adjust" }); setSelected(null); setTimeout(() => setShowAdjust(true), 80); }}>Koreksi Stok</button>
+                <button className="btn" style={{ flex: 1, minHeight: 44 }} onClick={() => { setAdjust({ inventory_item_id: selected.inventory_item_id, quantity: "", note: "", mode: "waste" }); setSelected(null); setTimeout(() => setShowAdjust(true), 80); }}>Waste</button>
               </div>
             </div>
           </div>
@@ -763,11 +767,32 @@ export default function InventoryClient({ initialOverview, products, windowDays 
       {showPurchase && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", display: "grid", placeItems: "center", zIndex: 50, padding: 16 }} onClick={() => setShowPurchase(false)}>
           <div className="card" style={{ padding: 20, width: "100%", maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ margin: "0 0 12px", fontWeight: 800 }}>Catat Pembelian Stok</h3>
+            <h3 style={{ margin: "0 0 12px", fontWeight: 800 }}>Pembelian / Purchase</h3>
             <div className="formgrid">
-              <div className="field full"><label>Bahan</label><select className="input" value={purchase.inventory_item_id} onChange={(e) => setPurchase({ ...purchase, inventory_item_id: e.target.value })}><option value="">Pilih bahan</option>{displayItems.map((it: any) => (<option key={it.inventory_item_id} value={it.inventory_item_id}>{it.name} ({it.unit})</option>))}</select></div>
-              <div className="field"><label>Qty</label><input className="input" type="number" step="0.001" value={purchase.quantity} onChange={(e) => setPurchase({ ...purchase, quantity: e.target.value })} placeholder="5" /></div>
-              <div className="field"><label>Unit Cost (Rp)</label><input className="input" type="number" value={purchase.unit_cost} onChange={(e) => setPurchase({ ...purchase, unit_cost: e.target.value })} placeholder="150000" /></div>
+              <div className="field full"><label>Bahan *</label><select className="input" value={purchase.inventory_item_id} onChange={(e) => setPurchase({ ...purchase, inventory_item_id: e.target.value })}><option value="">Pilih bahan</option>{displayItems.map((it: any) => (<option key={it.inventory_item_id} value={it.inventory_item_id}>{it.name} ({it.unit})</option>))}</select></div>
+              {purchase.inventory_item_id && (() => {
+                const it = displayItems.find((x:any)=> (x.inventory_item_id||x.id)===purchase.inventory_item_id);
+                const base = it?.unit || "unit";
+                return (
+                  <>
+                    <div className="field"><label>Qty (purchase unit)</label><input className="input" type="number" step="0.001" value={purchase.quantity} onChange={(e) => setPurchase({ ...purchase, quantity: e.target.value })} placeholder="1" /></div>
+                    <div className="field"><label>Purchase Unit</label><select className="input" value={purchase.purchase_unit} onChange={(e) => setPurchase({ ...purchase, purchase_unit: e.target.value })}>
+                      <option value="">{base} (base)</option>
+                      <option value={base==="ml"?"liter":"kg"}>{base==="ml"?"liter (1,000 ml)":"kg (1,000 g)"}</option>
+                    </select></div>
+                    {purchase.quantity && purchase.purchase_unit && (
+                      <div className="field full" style={{ background:"var(--surface2)", borderRadius:10, padding:"8px 10px" }}>
+                        <div className="muted" style={{ fontSize:10, fontWeight:700, marginBottom:4 }}>Conversion</div>
+                        <div style={{ fontSize:12 }}>{Number(purchase.quantity)} {purchase.purchase_unit} → {Number(purchase.quantity)*(purchase.purchase_unit==="liter"||purchase.purchase_unit==="kg"?1000:1)} {base}</div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+              {!purchase.inventory_item_id && <><div className="field"><label>Qty</label><input className="input" type="number" step="0.001" value={purchase.quantity} readOnly placeholder="pilih bahan dulu" /></div><div className="field"><label>Purchase Unit</label><input className="input" value="" readOnly /></div></>}
+              <div className="field"><label>Unit Cost (Rp per {purchase.purchase_unit || (purchase.inventory_item_id ? displayItems.find((x:any)=> (x.inventory_item_id||x.id)===purchase.inventory_item_id)?.unit || "" : "unit") || "unit"})</label><input className="input" type="number" value={purchase.unit_cost} onChange={(e) => setPurchase({ ...purchase, unit_cost: e.target.value })} placeholder="150000" />
+                <div className="muted" style={{ fontSize:10, marginTop:2 }}>Enter price for the purchase unit above. Stock & avg-cost are always converted to the base unit.</div>
+              </div>
               <div className="field full"><label>Catatan</label><input className="input" value={purchase.note} onChange={(e) => setPurchase({ ...purchase, note: e.target.value })} placeholder="Supplier / invoice" /></div>
               {purchase.quantity && purchase.unit_cost && <div className="full" style={{ background: "var(--surface2)", borderRadius: 10, padding: 10, fontSize: 12 }}>Total: <b>{formatRupiah(Number(purchase.quantity) * Number(purchase.unit_cost))}</b></div>}
               <div className="full" style={{ display: "flex", gap: 8, marginTop: 6 }}><button className="btn accent" style={{ flex: 1 }} onClick={doPurchase}>Simpan</button><button className="btn" onClick={() => setShowPurchase(false)}>Batal</button></div>
@@ -779,12 +804,23 @@ export default function InventoryClient({ initialOverview, products, windowDays 
       {showAdjust && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", display: "grid", placeItems: "center", zIndex: 50, padding: 16 }} onClick={() => setShowAdjust(false)}>
           <div className="card" style={{ padding: 20, width: "100%", maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ margin: "0 0 12px", fontWeight: 800 }}>Adjust / Waste</h3>
+            <h3 style={{ margin: "0 0 12px", fontWeight: 800 }}>{adjust.mode === "waste" ? "Pemborosan / Waste" : "Koreksi Stok / Adjustment"}</h3>
             <div className="formgrid">
               <div className="field full"><label>Bahan</label><select className="input" value={adjust.inventory_item_id} onChange={(e) => setAdjust({ ...adjust, inventory_item_id: e.target.value })}><option value="">Pilih bahan</option>{displayItems.map((it: any) => (<option key={it.inventory_item_id} value={it.inventory_item_id}>{it.name} ({fmtQty(it.current_stock, it.unit)})</option>))}</select></div>
-              <div className="field"><label>Tipe</label><select className="input" value={adjust.type} onChange={(e) => setAdjust({ ...adjust, type: e.target.value })}><option value="ADJUSTMENT">ADJUSTMENT (±)</option><option value="WASTE">WASTE (buang)</option></select></div>
-              <div className="field"><label>Qty {adjust.type === "ADJUSTMENT" ? "(±)" : "(+ akan jadi -)"}</label><input className="input" type="number" step="0.001" value={adjust.quantity} onChange={(e) => setAdjust({ ...adjust, quantity: e.target.value })} placeholder={adjust.type === "WASTE" ? "2" : "-1 atau 2"} /></div>
-              <div className="field full"><label>Catatan</label><input className="input" value={adjust.note} onChange={(e) => setAdjust({ ...adjust, note: e.target.value })} placeholder="Stock opname / rusak" /></div>
+              {adjust.mode === "waste" ? (
+                <>
+                  <div className="field"><label>Qty (waste)</label><input className="input" type="number" step="0.001" value={adjust.quantity} onChange={(e) => setAdjust({ ...adjust, quantity: e.target.value })} placeholder="2" />
+                    <div className="muted" style={{ fontSize:10, marginTop:2 }}>Masukkan positif. Sistem akan mengurangi stok sebesar {adjust.quantity ? fmtQty(Math.abs(Number(adjust.quantity)), "unit") : "qty"}.</div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="field"><label>Qty (±)</label><input className="input" type="number" step="0.001" value={adjust.quantity} onChange={(e) => setAdjust({ ...adjust, quantity: e.target.value })} placeholder="-300 atau +7" />
+                    <div className="muted" style={{ fontSize:10, marginTop:2 }}>Negatif karena stok lebih sedikit dari fisik. Positif karena stok lebih banyak dari fisik.</div>
+                  </div>
+                </>
+              )}
+              <div className="field full"><label>Catatan</label><input className="input" value={adjust.note} onChange={(e) => setAdjust({ ...adjust, note: e.target.value })} placeholder={adjust.mode === "waste" ? "Rusak / expired / terbuang" : "Stock opname / perbedaan fisik"} /></div>
               <div className="full" style={{ display: "flex", gap: 8, marginTop: 6 }}><button className="btn accent" style={{ flex: 1 }} onClick={doAdjust}>Simpan</button><button className="btn" onClick={() => setShowAdjust(false)}>Batal</button></div>
             </div>
           </div>
