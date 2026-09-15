@@ -8,7 +8,7 @@ import { OnboardingTour } from "@/components/onboarding/Tour";
 import { POS_TOUR } from "@/components/onboarding/data";
 
 type Cat = { id: string; name: string };
-type Prod = { id: string; name: string; selling_price: number; cost_price: number; category_id: string; category: Cat; image_url?: string | null };
+type Prod = { id: string; name: string; selling_price: number; category_id: string; category: Cat; image_url?: string | null };
 
 function fmtQty(v: any, unit?: string) {
   const n = Number(v);
@@ -192,7 +192,7 @@ export default function POSClient({ categories, products, productIdsWithRecipe =
                       <button aria-label="Tambah" className="btn" style={{ width:36, height:36, minHeight:36, minWidth:36, padding:0, borderRadius:8, fontSize:16, flex:"0 0 36px", background:"var(--surface)" }} onClick={()=>cart.updateQty(p.id, qty+1)}>＋</button>
                     </div>
                   ) : (
-                    <button className="btn" style={{ marginTop:8, minHeight:40, padding:"8px 12px", fontSize:13, fontWeight:600, width:"100%", borderRadius:10 }} onClick={()=>cart.add({product_id:p.id,product_name:p.name,selling_price:p.selling_price,cost_price:p.cost_price,image_url:p.image_url})}>＋ Tambah</button>
+                    <button className="btn" style={{ marginTop:8, minHeight:40, padding:"8px 12px", fontSize:13, fontWeight:600, width:"100%", borderRadius:10 }} onClick={()=>cart.add({product_id:p.id,product_name:p.name,selling_price:p.selling_price,image_url:p.image_url})}>＋ Tambah</button>
                   )}
                 </div>
               </div>

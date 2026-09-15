@@ -31,7 +31,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: { pe
   // COGS view — deep HPP analysis integrated with recipe truth
   if (view==="cogs") {
     const [variance, byCategory] = await Promise.all([
-      getCogsVariance(10).catch(()=>({ items:[], counts:{total:0,ok:0,drift:0,noRecipe:0}, driftTotalDiff:0 } as any)),
+      getCogsVariance().catch(()=>({ items:[], counts:{total:0,ok:0,noRecipe:0,noCost:0} } as any)),
       getCogsByCategory(from,to).catch(()=>[]),
     ]);
     const hppRatio = kpi.revenue ? (kpi.hpp/kpi.revenue)*100 : 0;
@@ -118,23 +118,23 @@ export default async function ReportsPage({ searchParams }: { searchParams: { pe
           </div>
         )}
 
-        {/* Variance: resep vs simpan */}
+        {/* Live HPP check: resep × biaya stok terkini */}
         <div className="card" style={{ padding:16, marginBottom:12 }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-            <div><div style={{ fontWeight:700, fontSize:13 }}>Recipe ↔ HPP Variance</div><div className="muted" style={{ fontSize:11 }}>HPP tersimpan vs HPP dari resep (avg_cost terkini)</div></div>
-            <span style={{ fontSize:11, fontWeight:700, background: variance.counts.drift? "var(--warning-soft)":"var(--green-soft)", color: variance.counts.drift?"var(--warning)":"var(--green)", padding:"4px 10px", borderRadius:999 }}>{variance.counts.drift} drift • {variance.counts.noRecipe} tanpa resep</span>
+            <div><div style={{ fontWeight:700, fontSize:13 }}>Cek HPP Live</div><div className="muted" style={{ fontSize:11 }}>HPP tiap produk dihitung live dari resep × biaya stok terkini — snapshot ke transaksi saat jual</div></div>
+            <span style={{ fontSize:11, fontWeight:700, background: variance.counts.noCost||variance.counts.noRecipe? "var(--warning-soft)":"var(--green-soft)", color: variance.counts.noCost||variance.counts.noRecipe?"var(--warning)":"var(--green)", padding:"4px 10px", borderRadius:999 }}>{variance.counts.noCost} tanpa biaya stok • {variance.counts.noRecipe} tanpa resep</span>
           </div>
           <div style={{ display:"grid", gap:8, marginTop:12 }}>
             {variance.items.slice(0,12).map((v:any)=>(
-              <div key={v.product_id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 12px", background: v.status==="DRIFT"?"var(--warning-soft)": v.status==="NO_RECIPE"?"#FFF7E5":"var(--green-soft)", border:`1px solid ${v.status==="DRIFT"?"#FED7AA": v.status==="NO_RECIPE"?"#FED7AA":"#BBF7D0"}`, borderRadius:12, gap:12 }}>
+              <div key={v.product_id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 12px", background: v.status==="OK"?"var(--green-soft)":"#FFF7E5", border:`1px solid ${v.status==="OK"?"#BBF7D0":"#FED7AA"}`, borderRadius:12, gap:12 }}>
                 <div style={{ minWidth:0, flex:1 }}>
                   <div style={{ fontWeight:700, fontSize:13, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{v.product_name} <span className="muted" style={{ fontWeight:400, fontSize:11 }}>• {v.category_name}</span></div>
                   <div className="muted" style={{ fontSize:11, marginTop:2 }}>{v.has_recipe ? `${(v.recipe_items as any[]).map((r:any)=>`${r.name} ${r.quantity}${r.unit}`).join(" • ")}` : "Belum ada resep"}</div>
-                  <div style={{ fontSize:11, marginTop:4 }}>{v.has_recipe ? <><b>{formatRupiah(v.stored_cost)}</b> vs resep <b>{formatRupiah(v.recipe_cost)}</b> {v.diffPct!=null && <span style={{ color: v.status==="DRIFT"?"var(--warning)":"var(--green)", fontWeight:700 }}>({(v.diffPct as number)>0?"+":""}{(v.diffPct as number).toFixed(1)}%)</span>} </> : <span className="muted">Set HPP resep agar stok auto</span>}</div>
+                  <div style={{ fontSize:11, marginTop:4 }}>{v.has_recipe ? <><b>HPP live {formatRupiah(v.recipe_cost)}</b>{v.hasUnpriced && <span style={{ color:"var(--warning)", fontWeight:700 }}> • ⚠ {v.unpriced.map((u:any)=>u.name).join(", ")} belum ada biaya</span>}</> : <span className="muted">Set resep agar stok & HPP live jalan</span>}</div>
                 </div>
                 <div style={{ textAlign:"right", flexShrink:0 }}>
-                  <div style={{ fontSize:11, fontWeight:800, color: v.status==="DRIFT"?"var(--warning)": v.status==="OK"?"var(--green)":"var(--muted)" }}>{v.status==="DRIFT"?"DRIFT": v.status==="NO_RECIPE"?"NO RECIPE": v.status==="NO_STOCK_COST"?"NO COST":"OK"}</div>
-                  {v.status==="DRIFT" && <a href="/products" style={{ fontSize:11, fontWeight:700, color:"var(--warning)" }}>Perbaiki →</a>}
+                  <div style={{ fontSize:11, fontWeight:800, color: v.status==="OK"?"var(--green)":"var(--warning)" }}>{v.status==="OK"?"OK": v.status==="NO_RECIPE"?"NO RECIPE":"NO COST"}</div>
+                  {v.status!=="OK" && <a href="/products" style={{ fontSize:11, fontWeight:700, color:"var(--warning)" }}>Perbaiki →</a>}
                 </div>
               </div>
             ))}

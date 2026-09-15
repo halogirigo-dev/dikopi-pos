@@ -12,7 +12,7 @@ export default async function DashboardData({ period }: { period: string }) {
     getSalesReport(from, to),
     getProductPerformance(from, to),
     getInventoryOverview(30).catch(()=>null),
-    getCogsVariance(10).catch(()=>({ items:[], counts:{total:0,ok:0,drift:0,noRecipe:0}, driftTotalDiff:0 } as any)),
+    getCogsVariance().catch(()=>({ items:[], counts:{total:0,ok:0,noRecipe:0,noCost:0} } as any)),
     getCogsByCategory(from,to).catch(()=>[]),
     prisma.expense.findMany({
       where: {
@@ -61,10 +61,10 @@ export default async function DashboardData({ period }: { period: string }) {
       </div>
 
       {/* Warning Card — ultra-minimal for UMKM owners */}
-      {cogsVariance && (cogsVariance.counts.drift > 0 || cogsVariance.counts.noRecipe > 0) && (
+      {cogsVariance && (cogsVariance.counts.noCost > 0 || cogsVariance.counts.noRecipe > 0) && (
         <div className="card" style={{ padding:16, borderColor:"var(--warning)", background:"var(--warning-soft)" }}>
           <div style={{ fontSize:14, fontWeight:700 }}>⚠️ Cek Harga Modal</div>
-          <div className="muted" style={{ fontSize:12, marginTop:6, lineHeight:"18px" }}>Ada perbedaan harga modal di sistem dengan resep.</div>
+          <div className="muted" style={{ fontSize:12, marginTop:6, lineHeight:"18px" }}>Ada produk yang resepnya belum lengkap biayanya / belum punya resep. HPP live dihitung dari resep — transaksi tetap jalan, COGS item tanpa resep tercatat 0.</div>
           <a href="/products" className="btn accent" style={{ width:"100%", marginTop:14, minHeight:44, fontSize:14, borderRadius:12, fontWeight:700 }}>Perbaiki Sekarang</a>
         </div>
       )}

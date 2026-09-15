@@ -130,7 +130,7 @@ export default function TransactionsClient({ transactions, isAdmin, activeLabel,
                   <div key={it.id} className="list-row">
                     <div>
                       <div style={{ fontWeight:600, fontSize:13 }}>{it.product_name}</div>
-                      <div className="muted" style={{ fontSize:12 }}>{formatRupiah(it.selling_price)} × {it.quantity} • HPP {formatRupiah(it.cost_price)}</div>
+                      <div className="muted" style={{ fontSize:12 }}>{formatRupiah(it.selling_price)} × {it.quantity} • HPP saat transaksi {formatRupiah(it.cost_price)}</div>
                     </div>
                     <b>{formatRupiah(it.revenue)}</b>
                   </div>

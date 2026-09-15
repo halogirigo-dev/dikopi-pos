@@ -82,16 +82,21 @@ async function main() {
     const prods = await prisma.product.findMany();
     for (let day = 0; day < 3; day++) {
       const d = new Date(now); d.setDate(now.getDate() - day); d.setHours(10+day,0,0,0);
-      const items = [prods[0], prods[1]].map(p=> ({
-        product_id: p.id,
-        product_name: p.name,
-        selling_price: p.selling_price,
-        cost_price: p.cost_price,
-        quantity: 2 + day,
-        revenue: p.selling_price * (2+day),
-        cogs: p.cost_price * (2+day),
-        gross_profit: (p.selling_price - p.cost_price) * (2+day),
-      }));
+      const items = [prods[0], prods[1]].map(p=> {
+        // Product.cost_price is deprecated (nullable); fall back to live recipe cost
+        const p2 = p as any;
+        const cost = p2.cost_price ?? 0;
+        return {
+          product_id: p.id,
+          product_name: p.name,
+          selling_price: p.selling_price,
+          cost_price: cost,
+          quantity: 2 + day,
+          revenue: p.selling_price * (2+day),
+          cogs: cost * (2+day),
+          gross_profit: (p.selling_price - cost) * (2+day),
+        };
+      });
       const total_rev = items.reduce((s,i)=>s+i.revenue,0);
       const total_cogs = items.reduce((s,i)=>s+i.cogs,0);
       const inv = `INV-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}-00${day+1}`;

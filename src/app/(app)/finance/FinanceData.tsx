@@ -5,7 +5,7 @@ import { getCogsVariance } from "@/lib/cogs";
 
 export default async function FinanceData({ tab, period }: { tab: string; period: string }) {
   const { from, to } = getDateRange(period);
-  const [kpi, inv, cogsVar] = await Promise.all([getFinancialKPI(from, to), getInventoryOverview(30).catch(()=>null), getCogsVariance(10).catch(()=>null)]);
+  const [kpi, inv, cogsVar] = await Promise.all([getFinancialKPI(from, to), getInventoryOverview(30).catch(()=>null), getCogsVariance().catch(()=>null)]);
 
   if (tab === "overview") {
     return (
@@ -35,11 +35,11 @@ export default async function FinanceData({ tab, period }: { tab: string; period
             );
           })()}
         </div>
-        {cogsVar && (cogsVar.counts.drift>0 || cogsVar.counts.noRecipe>0) && (
-          <div className="card" style={{ padding:12, background: cogsVar.counts.drift? "var(--warning-soft)" : "var(--surface2)", borderColor: cogsVar.counts.drift? "var(--warning)" : "var(--border)", borderStyle: cogsVar.counts.drift? "solid":"dashed" }}>
-            <div style={{ fontSize:11, fontWeight:800, color: cogsVar.counts.drift?"var(--warning)":"var(--muted)" }}>{cogsVar.counts.drift? "⚠️ COGS DRIFT":"ℹ️ COGS CHECK"}</div>
-            <div style={{ fontSize:12, fontWeight:700, marginTop:4 }}>{cogsVar.counts.drift} produk HPP beda &gt;10% dari resep • {cogsVar.counts.noRecipe} tanpa resep</div>
-            <div className="muted" style={{ fontSize:11, marginTop:4 }}>{cogsVar.items.filter((x:any)=>x.status==="DRIFT").slice(0,2).map((x:any)=>`${x.product_name} ${formatRupiah(x.stored_cost)}→${formatRupiah(x.recipe_cost)}`).join(" • ") || "Lengkapi resep"}</div>
+        {cogsVar && (cogsVar.counts.noCost>0 || cogsVar.counts.noRecipe>0) && (
+          <div className="card" style={{ padding:12, background: cogsVar.counts.noCost? "var(--warning-soft)" : "var(--surface2)", borderColor: cogsVar.counts.noCost? "var(--warning)" : "var(--border)", borderStyle: cogsVar.counts.noCost? "solid":"dashed" }}>
+            <div style={{ fontSize:11, fontWeight:800, color: cogsVar.counts.noCost?"var(--warning)":"var(--muted)" }}>{cogsVar.counts.noCost? "⚠️ Cek Harga Modal":"ℹ️ COGS CHECK"}</div>
+            <div style={{ fontSize:12, fontWeight:700, marginTop:4 }}>{cogsVar.counts.noCost} produk tanpa biaya stok di bahan resep • {cogsVar.counts.noRecipe} tanpa resep</div>
+            <div className="muted" style={{ fontSize:11, marginTop:4 }}>{cogsVar.items.filter((x:any)=>x.status==="NO_STOCK_COST").slice(0,2).map((x:any)=>`${x.product_name} (HPP live ${formatRupiah(x.recipe_cost)})`).join(" • ") || "Lengkapi resep & biaya stok"}</div>
             <a href="/reports?view=cogs" style={{ fontSize:11, fontWeight:700, color:"var(--accent)", marginTop:6, display:"inline-block" }}>Lihat COGS →</a>
           </div>
         )}

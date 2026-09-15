@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { generateInvoiceNumber } from "@/lib/utils";
+import { computeRecipeCostDetail } from "@/lib/cogs";
 import { revalidatePath } from "next/cache";
 
 export async function GET(req: Request) {
@@ -43,6 +44,34 @@ export async function POST(req: Request) {
   const productIds = items.map(i=>i.product_id);
   const products = await prisma.product.findMany({ where: { id: { in: productIds } } });
   const map = new Map(products.map(p=>[p.id,p]));
+
+  // ---- Inventory resolution (Product -> Recipe -> InventoryItem) — done
+  // BEFORE the line loop so live recipe HPP (C) can be snapshotted per line.
+  const recipeItems = await prisma.recipeItem.findMany({
+    where: { product_id: { in: productIds } },
+    include: { inventory_item: true },
+  });
+  const recipeByProduct = new Map<string, typeof recipeItems>();
+  for (const r of recipeItems) {
+    if (!recipeByProduct.has(r.product_id)) recipeByProduct.set(r.product_id, []);
+    recipeByProduct.get(r.product_id)!.push(r);
+  }
+
+  // Live recipe HPP per product: Σ(ingredient qty × current avg cost), rounded
+  // to whole rupiah. NO_RECIPE products cost 0 (warning-only, sale proceeds).
+  const liveCostByProduct = new Map<string, { cost: number; unpriced: string[] }>();
+  for (const pid of productIds) {
+    const recipe = recipeByProduct.get(pid) || [];
+    const detail = computeRecipeCostDetail(
+      recipe.map((ri: any) => ({
+        inventory_item_id: ri.inventory_item_id,
+        quantity: ri.quantity,
+        inventory_item: ri.inventory_item,
+      }))
+    );
+    liveCostByProduct.set(pid, { cost: detail.total, unpriced: detail.unpriced.map((u: any) => u.name) });
+  }
+
   let totalRevenue = 0, totalCogs = 0;
   const lineItems: any[] = [];
   for (const it of items) {
@@ -51,14 +80,18 @@ export async function POST(req: Request) {
     if (!p.is_available) return new Response(`Product not available ${p.name}`, { status: 400 });
     const qty = Number(it.quantity);
     const revenue = p.selling_price * qty;
-    const cogs = p.cost_price * qty;
+    // Single source of truth: COGS is the LIVE recipe HPP (C) at sale time,
+    // snapshotted into the transaction item. Historical rows are never
+    // recomputed. NO_RECIPE -> cogs 0 (stock not deducted, warning kept).
+    const liveUnit = liveCostByProduct.get(p.id)?.cost ?? 0;
+    const cogs = liveUnit * qty;
     totalRevenue += revenue;
     totalCogs += cogs;
     lineItems.push({
       product_id: p.id,
       product_name: p.name,
       selling_price: p.selling_price,
-      cost_price: p.cost_price,
+      cost_price: liveUnit,
       quantity: qty,
       revenue, cogs, gross_profit: revenue - cogs
     });
@@ -89,18 +122,7 @@ export async function POST(req: Request) {
     change = 0;
   }
 
-  // ---- Inventory consumption resolution (Product -> Recipe -> InventoryItem) ----
-  // Fetch recipes for products in this sale
-  const recipeItems = await prisma.recipeItem.findMany({
-    where: { product_id: { in: productIds } },
-    include: { inventory_item: true },
-  });
-  // Group by product_id
-  const recipeByProduct = new Map<string, typeof recipeItems>();
-  for (const r of recipeItems) {
-    if (!recipeByProduct.has(r.product_id)) recipeByProduct.set(r.product_id, []);
-    recipeByProduct.get(r.product_id)!.push(r);
-  }
+  // ---- Inventory consumption (recipes already fetched above) ----
   // Aggregate total consumption per inventory_item_id
   const consumptionMap = new Map<string, { qty: number; unitCost: number; name: string }>();
   for (const it of items) {
