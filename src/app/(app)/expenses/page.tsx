@@ -2,11 +2,17 @@ import { prisma } from "@/lib/prisma";
 import ExpensesClient from "./ExpensesClient";
 import { getDateRange } from "@/lib/utils";
 import RealtimeRefresher from "@/components/RealtimeRefresher";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function ExpensesPage({ searchParams }: { searchParams: { period?: string; date?: string; month?: string; category?: string; from?: string; to?: string } }) {
+  const session: any = await getServerSession(authOptions);
+  if (!session) redirect("/login");
+  if (session.user.role !== "ADMIN") redirect("/pos");
   const categories = await prisma.expenseCategory.findMany({ orderBy: { name: "asc" }});
 
   let from: Date | null = null;

@@ -10,6 +10,12 @@ import { POS_TOUR } from "@/components/onboarding/data";
 type Cat = { id: string; name: string };
 type Prod = { id: string; name: string; selling_price: number; cost_price: number; category_id: string; category: Cat; image_url?: string | null };
 
+function fmtQty(v: any, unit?: string) {
+  const n = Number(v);
+  const shown = Number.isFinite(n) ? n : 0;
+  return `${shown} ${unit ? unit.trim() : ""}`.trim();
+}
+
 export default function POSClient({ categories, products, productIdsWithRecipe = [] }: { categories: Cat[]; products: Prod[]; productIdsWithRecipe?: string[] }) {
   const [activeCat, setActiveCat] = useState<string>("All");
   const [search, setSearch] = useState("");
@@ -19,6 +25,8 @@ export default function POSClient({ categories, products, productIdsWithRecipe =
   const [showPayment, setShowPayment] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState<any>(null);
+  const [stockError, setStockError] = useState<any>(null);
+  const [genericError, setGenericError] = useState<string|null>(null);
   const router = useRouter();
   const cart = useCart();
   const { state: obState, isCompleted, markCompleted } = useOnboarding();
@@ -79,19 +87,34 @@ export default function POSClient({ categories, products, productIdsWithRecipe =
     setLoading(true);
     const payload:any={ items: cart.items.map(i=>({product_id:i.product_id,quantity:i.quantity})), payment_method: payment };
     if(payment==="CASH"){ const paid = amountPaid===""? total: paidNum; payload.amount_paid=paid; payload.change_amount=Math.max(0,paid-total); }
-    const res=await fetch("/api/transactions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
-    if(res.ok){
-      const d=await res.json();
-      setSuccess(d);
+    try {
+      const res=await fetch("/api/transactions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+      if(res.ok){
+        const d=await res.json();
+        setSuccess(d);
+        setShowPayment(false);
+        setShowCart(false);
+        cart.clear();
+        setAmountPaid("");
+        // paksa revalidate agar Dashboard/Finance langsung terupdate saat navigasi
+        router.refresh();
+        // juga trigger event untuk RealtimeRefresher di halaman lain yang sedang terbuka
+        if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("dikopi:refresh"));
+        return;
+      }
+      // Gagal: JANGAN clear keranjang — kasir bisa perbaiki qty & coba lagi
+      const body:any = await res.json().catch(()=> ({}));
+      if(res.status===409 && body.code==="INSUFFICIENT_STOCK"){
+        setStockError(body.details || {});
+      } else {
+        setGenericError(res.status===401||res.status===403 ? "Sesi berakhir — silakan login ulang." : "Transaksi gagal. Silakan coba lagi.");
+      }
       setShowPayment(false);
-      setShowCart(false);
-      cart.clear();
-      setAmountPaid("");
-      // paksa revalidate agar Dashboard/Finance langsung terupdate saat navigasi
-      router.refresh();
-      // juga trigger event untuk RealtimeRefresher di halaman lain yang sedang terbuka
-      if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("dikopi:refresh"));
-    } else alert(await res.text());
+    } catch {
+      // network / fetch error — keep cart, show a minimal fallback
+      setGenericError("Koneksi error. Silakan coba lagi.");
+      setShowPayment(false);
+    }
     setLoading(false);
   }
 
@@ -369,6 +392,32 @@ export default function POSClient({ categories, products, productIdsWithRecipe =
               </div>
             ) : null}
             <button className="btn primary" style={{ width:"100%", marginTop:20, minHeight:48 }} onClick={()=>setSuccess(null)}>Selesai</button>
+          </div>
+        </div>
+      )}
+      {/* Insufficient stock — clean cashier-facing dialog (no raw JSON) */}
+      {stockError && (
+        <div className="bottom-sheet" onClick={()=>setStockError(null)}>
+          <div className="bottom-sheet-card" style={{ textAlign:"center", padding:24 }} onClick={e=>e.stopPropagation()}>
+            <div style={{ width:64, height:64, borderRadius:"50%", background:"var(--red-soft)", color:"var(--red)", display:"grid", placeItems:"center", fontSize:28, margin:"0 auto 12px" }}>⚠</div>
+            <h3 style={{ margin:0, fontSize:18, fontWeight:800 }}>Stok Tidak Cukup</h3>
+            <div style={{ fontSize:15, fontWeight:600, marginTop:10, lineHeight:1.5, color:"var(--text)" }}>
+              {stockError.name ? `${stockError.name}` : "Item di pesanan"} tersisa <b>{fmtQty(stockError.available, stockError.unit)}</b>, sedangkan pesanan membutuhkan <b>{fmtQty(stockError.required, stockError.unit)}</b>.
+            </div>
+            <div className="muted" style={{ fontSize:12, marginTop:8 }}>Kurangi jumlah di keranjang atau ubah pesanan, lalu coba lagi. Keranjang tetap ada.</div>
+            <button className="btn primary" style={{ width:"100%", marginTop:20, minHeight:48 }} onClick={()=>setStockError(null)}>Baik</button>
+          </div>
+        </div>
+      )}
+
+      {/* Generic error fallback */}
+      {genericError && (
+        <div className="bottom-sheet" onClick={()=>setGenericError(null)}>
+          <div className="bottom-sheet-card" style={{ textAlign:"center", padding:24 }} onClick={e=>e.stopPropagation()}>
+            <div style={{ width:64, height:64, borderRadius:"50%", background:"var(--red-soft)", color:"var(--red)", display:"grid", placeItems:"center", fontSize:28, margin:"0 auto 12px" }}>✕</div>
+            <h3 style={{ margin:0, fontSize:18, fontWeight:800 }}>Transaksi Gagal</h3>
+            <div className="muted" style={{ fontSize:13, marginTop:8, lineHeight:1.5 }}>{genericError}</div>
+            <button className="btn primary" style={{ width:"100%", marginTop:20, minHeight:48 }} onClick={()=>setGenericError(null)}>Baik</button>
           </div>
         </div>
       )}

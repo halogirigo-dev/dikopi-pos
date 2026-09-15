@@ -4,11 +4,17 @@ import ReportsClient from "./ReportsClient";
 import { FeatureTourClient } from "@/components/onboarding/FeatureTourClient";
 import { REPORTS_TOUR } from "@/components/onboarding/data";
 import { getCogsVariance, getCogsByCategory } from "@/lib/cogs";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function ReportsPage({ searchParams }: { searchParams: { period?: string; view?: string }}) {
+  const session: any = await getServerSession(authOptions);
+  if (!session) redirect("/login");
+  if (session.user.role !== "ADMIN") redirect("/pos");
   const period = searchParams.period || "thisMonth";
   const view = searchParams.view || "";
   const { from, to } = getDateRange(period);

@@ -1,18 +1,34 @@
+import { prisma } from "@/lib/prisma";
 import { getFinancialKPI, getSalesReport, getProductPerformance } from "@/lib/finance";
 import { getDateRange, formatRupiah } from "@/lib/utils";
 import { getInventoryOverview } from "@/lib/inventory";
 import { getCogsVariance, getCogsByCategory } from "@/lib/cogs";
+import ExpenseQuickAdd from "./ExpenseQuickAdd";
 
 export default async function DashboardData({ period }: { period: string }) {
   const { from, to } = getDateRange(period);
-  const [kpi, sales, topProducts, invOverview, cogsVariance, byCategory] = await Promise.all([
+  const [kpi, sales, topProducts, invOverview, cogsVariance, byCategory, opExpenses, opCategories] = await Promise.all([
     getFinancialKPI(from, to),
     getSalesReport(from, to),
     getProductPerformance(from, to),
     getInventoryOverview(30).catch(()=>null),
     getCogsVariance(10).catch(()=>({ items:[], counts:{total:0,ok:0,drift:0,noRecipe:0}, driftTotalDiff:0 } as any)),
     getCogsByCategory(from,to).catch(()=>[]),
+    prisma.expense.findMany({
+      where: {
+        expense_date: { gte: from, lte: to },
+        NOT: { category: { name: "Raw Material" } },
+      },
+      include: { category: true, creator: { select: { id: true, name: true } } },
+      orderBy: { expense_date: "desc" },
+      take: 50,
+    }),
+    prisma.expenseCategory.findMany({ orderBy: { name: "asc" } }),
   ]);
+  const opTotal = opExpenses.reduce((s, e: any) => s + e.amount, 0);
+  const opPerCat: Record<string, number> = {};
+  opExpenses.forEach((e: any) => { opPerCat[e.category.name] = (opPerCat[e.category.name] || 0) + e.amount; });
+  const opPerCatEntries = Object.entries(opPerCat).sort((a, b) => (b[1] as number) - (a[1] as number));
   const hppRatio = kpi.revenue ? (kpi.hpp / kpi.revenue)*100 : 0;
   const hppHealth = !kpi.revenue ? {label:"-", color:"var(--muted)", bg:"var(--surface2)"} : hppRatio <= 35 ? {label:"Sehat", color:"var(--green)", bg:"var(--green-soft)"} : hppRatio <= 50 ? {label:"Cukup", color:"var(--warning)", bg:"var(--warning-soft)"} : {label:"Tipis", color:"var(--red)", bg:"var(--red-soft)"};
   const topByHpp = [...topProducts].sort((a,b)=> b.hpp - a.hpp).slice(0,3);
@@ -40,7 +56,7 @@ export default async function DashboardData({ period }: { period: string }) {
           <a href="/reports?view=cogs" style={{ fontSize:11, fontWeight:700, color:"var(--accent)", marginTop:6, display:"inline-block" }}>Detail COGS →</a>
         </div>
         <div className="card kpi" style={{ padding:14 }}><div className="kpi-label">Gross Profit</div><div className="kpi-value positive" style={{ fontSize:20, fontVariantNumeric:"tabular-nums" as any }}>{formatRupiah(kpi.grossProfit)}</div><div className="delta">Margin {kpi.grossMargin.toFixed(1)}% • HPP {hppRatio.toFixed(1)}%</div></div>
-        <div className="card kpi" style={{ padding:14 }}><div className="kpi-label">Expense</div><div className="kpi-value" style={{ fontSize:20, fontVariantNumeric:"tabular-nums" as any }}>{formatRupiah(kpi.totalExpense)}</div><div className="delta">Operasional • {kpi.revenue? ((kpi.totalExpense/kpi.revenue)*100).toFixed(1):0}% of rev</div></div>
+        <div className="card kpi" style={{ padding:14 }}><div className="kpi-label">Expense</div><div className="kpi-value" style={{ fontSize:20, fontVariantNumeric:"tabular-nums" as any }}>{formatRupiah(kpi.totalExpense)}</div><div className="delta">Operasional + Modal • {kpi.revenue? ((kpi.totalExpense/kpi.revenue)*100).toFixed(1):0}% of rev</div></div>
         <div className="card kpi" style={{ padding:14 }}><div className="kpi-label">Net Profit</div><div className={`kpi-value ${kpi.netProfit >= 0 ? "positive" : "negative"}`} style={{ fontSize:20, fontVariantNumeric:"tabular-nums" as any }}>{formatRupiah(kpi.netProfit)}</div><div className="delta">{kpi.revenue ? ((kpi.netProfit / kpi.revenue) * 100).toFixed(1) : 0}% net • after HPP</div></div>
       </div>
 
@@ -73,8 +89,8 @@ export default async function DashboardData({ period }: { period: string }) {
           </div>
           <div style={{ background:"var(--primary)", color:"#fff", borderRadius:14, padding:"18px 16px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
             <div>
-              <div style={{ fontSize:11, fontWeight:800, letterSpacing:".08em", opacity:.6 }}>SISA UANG</div>
-              <div style={{ fontSize:11, opacity:.5, marginTop:2 }}>Kas bersih</div>
+              <div style={{ fontSize:11, fontWeight:800, letterSpacing:".08em", opacity:.6 }}>LABA BERSIH</div>
+              <div style={{ fontSize:11, opacity:.5, marginTop:2 }}>Net Profit hari ini</div>
             </div>
             <div style={{ fontSize:30, fontWeight:900, letterSpacing:"-.04em", lineHeight:1, fontVariantNumeric:"tabular-nums" as any }}>{formatRupiah(kpi.netProfit)}</div>
           </div>
@@ -133,17 +149,54 @@ export default async function DashboardData({ period }: { period: string }) {
                 )}
               </div>
               <div style={{ borderTop:"1px solid var(--border)", paddingTop:14 }}>
-                <div style={{ fontSize:11, fontWeight:800, letterSpacing:".06em", color:"var(--muted)", marginBottom:10, display:"flex", alignItems:"center", gap:8 }}>
-                  <span style={{ width:8, height:8, borderRadius:"50%", background:"var(--warning)", display:"inline-block" }} /> OPERASIONAL
-                  <span style={{ fontWeight:400, textTransform:"none", letterSpacing:0, color:"var(--muted)", fontSize:11 }}>(overhead)</span>
+                <div style={{ fontSize:11, fontWeight:800, letterSpacing:".06em", color:"var(--muted)", marginBottom:10, display:"flex", alignItems:"center", gap:8, justifyContent:"space-between" }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                    <span style={{ width:8, height:8, borderRadius:"50%", background:"var(--warning)", display:"inline-block" }} /> OPERASIONAL
+                    <span style={{ fontWeight:400, textTransform:"none", letterSpacing:0, color:"var(--muted)", fontSize:11 }}>(overhead)</span>
+                  </div>
+                  <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                    <ExpenseQuickAdd categories={opCategories} />
+                    <a href="/expenses" style={{ fontSize:11, fontWeight:700, color:"var(--accent)", whiteSpace:"nowrap" }}>Detail →</a>
+                  </div>
                 </div>
-                {kpi.totalExpense > 0 ? (
-                  <div style={{ background:"var(--surface2)", borderRadius:12, padding:"12px 14px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                    <span style={{ fontSize:13, fontWeight:600 }}>Total operasional</span>
-                    <b style={{ fontSize:14 }}>{formatRupiah(kpi.totalExpense)}</b>
+                {opTotal > 0 ? (
+                  <div style={{ display:"grid", gap:10 }}>
+                    {/* Per-category breakdown */}
+                    {opPerCatEntries.length > 0 && (
+                      <div style={{ background:"var(--surface2)", borderRadius:12, padding:"12px 14px", display:"grid", gap:8 }}>
+                        {opPerCatEntries.map(([name, amt])=>(
+                          <div key={name} style={{ display:"flex", justifyContent:"space-between", fontSize:12 }}>
+                            <span style={{ fontWeight:600 }}>{name}</span>
+                            <b style={{ color:"var(--red)" }}>-{formatRupiah(amt as number)}</b>
+                          </div>
+                        ))}
+                        <div style={{ borderTop:"1px solid var(--border)", paddingTop:8, display:"flex", justifyContent:"space-between" }}>
+                          <span style={{ fontWeight:700 }}>Total operasional</span>
+                          <b style={{ color:"var(--red)", fontSize:13 }}>-{formatRupiah(opTotal)}</b>
+                        </div>
+                      </div>
+                    )}
+                    {/* Recent operational expenses list */}
+                    {opExpenses.length > 0 && (
+                      <div style={{ display:"grid", gap:6 }}>
+                        {opExpenses.slice(0, 5).map((e: any) => (
+                          <div key={e.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", fontSize:12, padding:"6px 10px", background:"var(--surface2)", borderRadius:8 }}>
+                            <div>
+                              <div style={{ fontWeight:600 }}>{e.description}</div>
+                              <div className="muted" style={{ fontSize:10, marginTop:2 }}>{e.category.name} • {new Date(e.expense_date).toLocaleDateString("id-ID")} • {e.creator?.name || ""}</div>
+                            </div>
+                            <b style={{ color:"var(--red)" }}>-{formatRupiah(e.amount)}</b>
+                          </div>
+                        ))}
+                        {opExpenses.length > 5 && <div className="muted" style={{ fontSize:11, textAlign:"center" }}>+{opExpenses.length - 5} lainnya <a href="/expenses" style={{ color:"var(--accent)", fontWeight:700 }}>Lihat semua →</a></div>}
+                      </div>
+                    )}
                   </div>
                 ) : (
-                  <div className="muted" style={{ fontSize:12, padding:"8px 0" }}>Belum ada pengeluaran hari ini.</div>
+                  <div style={{ background:"var(--surface2)", borderRadius:12, padding:"12px 14px", textAlign:"center" }}>
+                    <div className="muted" style={{ fontSize:12 }}>Belum ada pengeluaran operasional hari ini</div>
+                    <a href="/expenses" style={{ display:"inline-block", marginTop:8, fontSize:12, fontWeight:700, color:"var(--accent)" }}>＋ Catat sekarang</a>
+                  </div>
                 )}
               </div>
             </>
