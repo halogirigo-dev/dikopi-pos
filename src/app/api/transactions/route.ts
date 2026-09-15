@@ -157,44 +157,43 @@ export async function POST(req: Request) {
           }
         }
 
-        const created = await txClient.transaction.create({
-          data: {
-            invoice_number: invoice,
-            user_id: session.user.id,
-            total_revenue: totalRevenue,
-            total_cogs: totalCogs,
-            gross_profit: grossProfit,
-            payment_method: payment_method as any,
-            status: "COMPLETED" as any,
-            amount_paid: paid,
-            change_amount: change,
-            items: { create: lineItems }
-          },
-          include: { items: true }
-        });
-
-        // Create stock movements and update current_stock
-        for (const entry of Array.from(consumptionMap.entries())) {
-          const invId = entry[0]; const need = entry[1];
-          await txClient.stockMovement.create({
-            data: {
-              inventory_item_id: invId,
-              type: "SALE_CONSUMPTION",
-              quantity: -Math.abs(need.qty),
-              unit_cost: need.unitCost || null,
-              reference_type: "TRANSACTION",
-              reference_id: created.id,
-              note: `POS sale ${created.invoice_number}`,
-              created_by: session.user.id,
-            }
-          });
-          await txClient.inventoryItem.update({
-            where: { id: invId },
-            data: { current_stock: { decrement: Math.abs(need.qty) } }
-          });
+      const created = await txClient.transaction.create({
+        data: {
+          invoice_number: invoice,
+          user_id: session.user.id,
+          total_revenue: totalRevenue,
+          total_cogs: totalCogs,
+          gross_profit: grossProfit,
+          payment_method: payment_method as any,
+          status: "COMPLETED" as any,
+          amount_paid: paid,
+          change_amount: change,
+          items: { create: lineItems }
         }
-        return created;
-      }, { maxWait: 10000, timeout: 15000 });
+      });
+
+      // Create stock movements and update current_stock
+      for (const entry of Array.from(consumptionMap.entries())) {
+        const invId = entry[0]; const need = entry[1];
+        await txClient.stockMovement.create({
+          data: {
+            inventory_item_id: invId,
+            type: "SALE_CONSUMPTION",
+            quantity: -Math.abs(need.qty),
+            unit_cost: need.unitCost || null,
+            reference_type: "TRANSACTION",
+            reference_id: created.id,
+            note: `POS sale ${created.invoice_number}`,
+            created_by: session.user.id,
+          }
+        });
+        await txClient.inventoryItem.update({
+          where: { id: invId },
+          data: { current_stock: { decrement: Math.abs(need.qty) } }
+        });
+      }
+      return created;
+    }, { maxWait: 10000, timeout: 15000 });
 
       try {
         revalidatePath("/dashboard");
@@ -221,16 +220,39 @@ export async function POST(req: Request) {
         }
       });
     } catch (e: any) {
+      // Insufficient stock thrown inside the interactive transaction. Prisma
+      // unwraps the callback error and surfaces it as a plain Error, so the
+      // original `.code` may not survive: re-identify by the stable error
+      // identity ("Stok tidak cukup") that only the stock pre-check emits.
+      // P2037 (transaction timeout/disconnect) is explicitly excluded so a
+      // reliability error is never misclassified as insufficient stock.
+      if (e?.code !== "P2037" && (e.code === "INSUFFICIENT_STOCK" || /Stok tidak cukup/.test(e?.message || ""))) {
+        return Response.json({
+          code: "INSUFFICIENT_STOCK",
+          error: e.message,
+          details: e.details || null,
+        }, { status: 409 });
+      }
       if (e.code === "P2002") {
+        // unique invoice collision: bump invoice, keep same attempt
         invoice = generateInvoiceNumber(new Date(), countToday + attempt + 1);
         continue;
       }
-      if (e.code === "INSUFFICIENT_STOCK" || e.message?.includes("Stok tidak cukup")) {
-        return new Response(JSON.stringify({ error: e.message, details: e.details || null }), { status: 409, headers: { "Content-Type":"application/json" } });
-      }
-      // Prisma transaction error wrapping?
-      if (e.message?.includes("Stok tidak cukup")) {
-        return new Response(JSON.stringify({ error: e.message }), { status: 409, headers: { "Content-Type":"application/json" } });
+      if (e.code === "P2037") {
+        // Under the pgbouncer pooler a long interactive transaction can be
+        // detached (pool connection closed / client disconnect) → P2037
+        // "Transaction not found". The interactive callback is a pure create
+        // (no reads of its own data), so a fresh attempt is safe and
+        // duplicate-free: a fully-committed attempt returns 200 and never
+        // reaches this catch; only a pre-commit rollback or a P2037 abort
+        // lands here, and retrying cannot double-write. Bounded retry (attempts
+        // 0-1); on the final attempt the error propagates as a 500 — no loop,
+        // no silent success.
+        if (attempt < 1) {
+          invoice = generateInvoiceNumber(new Date(), countToday + attempt + 1);
+          continue;
+        }
+        throw new Error("Transaction aborted by database pooler (P2037); request not committed");
       }
       throw e;
     }

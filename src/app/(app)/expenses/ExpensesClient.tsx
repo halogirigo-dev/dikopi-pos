@@ -11,6 +11,9 @@ export default function ExpensesClient({ categories, expenses, activeLabel, init
   const router = useRouter();
   const sp = useSearchParams();
   const [show, setShow]=useState(false);
+  // Separate state for quick-add operational expenses
+  const [showQuick, setShowQuick]=useState(false);
+  const [quickForm,setQuickForm]=useState({category_id:categories.find((c:any)=>c.name!=="Raw Material")?.id||categories[0]?.id||"",description:"",amount:"",payment_method:"CASH",notes:""});
   const [form,setForm]=useState({category_id:categories[0]?.id||"",description:"",amount:"",payment_method:"CASH",expense_date:new Date().toISOString().slice(0,10),notes:""});
   const { state: obState, isCompleted, markCompleted } = useOnboarding();
   const [showTour, setShowTour] = useState(false);
@@ -23,6 +26,12 @@ export default function ExpensesClient({ categories, expenses, activeLabel, init
   async function submit(){
     const res=await fetch("/api/expenses",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...form,amount:Number(form.amount)})});
     if(res.ok) location.reload(); else alert(await res.text());
+  }
+
+  async function submitQuick(){
+    if(!quickForm.category_id || !quickForm.description || !(Number(quickForm.amount)>0)) return alert("Lengkapi deskripsi & nominal");
+    const res=await fetch("/api/expenses",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...quickForm,amount:Number(quickForm.amount),expense_date:new Date().toISOString().slice(0,10)})});
+    if(res.ok){ setShowQuick(false); setQuickForm((f)=>({...f,description:"",amount:"",notes:""})); router.refresh(); window.dispatchEvent(new CustomEvent("dikopi:refresh")); } else alert(await res.text());
   }
 
   function push(params: Record<string,string|undefined>){
@@ -105,8 +114,9 @@ export default function ExpensesClient({ categories, expenses, activeLabel, init
 
       <div style={{ display:"flex", gap:8, marginBottom:12 }}>
         <button data-onboarding="expenses-add" className="btn accent" style={{ flex:1, minHeight:48 }} onClick={()=>setShow(true)}>＋ Tambah Pengeluaran</button>
+        <button className="btn" style={{ flex:1, minHeight:48 }} onClick={()=>setShowQuick(true)}>⚡ Catat Cepat (Operasional)</button>
       </div>
-      <div className="muted" style={{ fontSize:11, margin:"0 0 12px", textAlign:"center" }}>💡 Pengeluaran = biaya operasional. Dicatat di sini agar laba bersih akurat.</div>
+      <div className="muted" style={{ fontSize:11, margin:"0 0 12px", textAlign:"center" }}>💡 Semua pengeluaran tercatat otomatis: pembelian stok jadi expense kategori Raw Material, operasional dicatat di sini.</div>
 
       {/* Per-kategori per-bulan summary */}
       {perCatEntries.length>0 && (
@@ -153,6 +163,43 @@ export default function ExpensesClient({ categories, expenses, activeLabel, init
           </tbody>
         </table>
       </div>
+
+      {showQuick && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.4)", display:"grid", placeItems:"center", zIndex:50, padding:16 }} onClick={()=>setShowQuick(false)}>
+          <div className="card" style={{ padding:20, width:420 }} onClick={e=>e.stopPropagation()}>
+            <h3 style={{ margin:"0 0 12px" }}>⚡ Catat Cepat — Pengeluaran Operasional</h3>
+            <div className="formgrid">
+              <div className="field"><label>Kategori</label>
+                <select className="input" value={quickForm.category_id} onChange={e=>setQuickForm({...quickForm,category_id:e.target.value})}>
+                  {categories.filter((c:any)=>c.name!=="Raw Material").map((c:any)=><option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div className="field"><label>Payment</label>
+                <select className="input" value={quickForm.payment_method} onChange={e=>setQuickForm({...quickForm,payment_method:e.target.value})}>
+                  <option>CASH</option><option>QRIS</option><option>DEBIT</option><option>TRANSFER</option>
+                </select>
+              </div>
+              <div className="field full"><label>Deskripsi *</label>
+                <input className="input" value={quickForm.description} onChange={e=>setQuickForm({...quickForm,description:e.target.value})} placeholder="Listrik / Sewa / Gaji / Internet / Maintenance" />
+              </div>
+              <div className="field"><label>Amount (Rp) *</label>
+                <input className="input" type="number" value={quickForm.amount} onChange={e=>setQuickForm({...quickForm,amount:e.target.value})} placeholder="500000" />
+              </div>
+              <div className="field"><label>Tanggal</label>
+                <input className="input" type="date" defaultValue={new Date().toISOString().slice(0,10)} />
+              </div>
+              <div className="field full"><label>Notes</label>
+                <input className="input" value={quickForm.notes} onChange={e=>setQuickForm({...quickForm,notes:e.target.value})} placeholder="Opsional" />
+              </div>
+              <div className="full" style={{ display:"flex", gap:8, marginTop:6 }}>
+                <button className="btn accent" style={{ flex:1 }} onClick={submitQuick}>Simpan</button>
+                <button className="btn" onClick={()=>setShowQuick(false)}>Batal</button>
+              </div>
+            </div>
+            <div className="muted" style={{ fontSize:11, marginTop:10, lineHeight:1.5 }}>Kategori Raw Material di-skip di sini — itu dipakai otomatis oleh pembelian stok. Semua pembelian stok tercatat sebagai expense.</div>
+          </div>
+        </div>
+      )}
 
       {show && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.4)", display:"grid", placeItems:"center", zIndex:50 }} onClick={()=>setShow(false)}>

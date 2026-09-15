@@ -18,6 +18,10 @@ export async function POST(req: Request) {
   if (!item) return new Response("Inventory item not found", { status: 404 });
   if (!item.is_active) return new Response("Item is inactive", { status: 400 });
 
+  // Resolve expense category: prefer "Raw Material", fall back to first available category
+  const rawCat = await prisma.expenseCategory.findFirst({ where: { name: "Raw Material" } });
+  const fallbackCat = rawCat ?? await prisma.expenseCategory.findFirst({ orderBy: { name: "asc" } });
+
   // Weighted average cost update inside transaction
   const result = await prisma.$transaction(async (txClient) => {
     const current = await txClient.inventoryItem.findUnique({ where: { id: inventory_item_id } });
@@ -35,6 +39,25 @@ export async function POST(req: Request) {
       where: { id: inventory_item_id },
       data: { current_stock: newStock, average_cost: Math.round(newAvg * 100) / 100 },
     });
+    // Compute total purchase amount (round to whole rupiah)
+    const totalAmount = Math.round(qty * uc);
+
+    // Create expense record linked to this purchase (only when there's an amount and a category exists)
+    let expense: any = null;
+    if (totalAmount > 0 && fallbackCat) {
+      expense = await txClient.expense.create({
+        data: {
+          category_id: (fallbackCat as any).id,
+          description: `Pembelian ${item.name} — ${qty} ${item.unit}`,
+          amount: totalAmount,
+          payment_method: "CASH",
+          expense_date: new Date(),
+          created_by: session.user.id,
+          notes: `Otomatis dari pembelian stok • Item: ${item.name} • Qty: ${qty} ${item.unit} • ${uc} Rp/unit${note ? ` • ${note}` : ""}`,
+        },
+      });
+    }
+
     const movement = await txClient.stockMovement.create({
       data: {
         inventory_item_id,
@@ -42,16 +65,18 @@ export async function POST(req: Request) {
         quantity: qty,
         unit_cost: uc,
         reference_type: "PURCHASE",
+        reference_id: expense ? expense.id : undefined,
         note: note || null,
         created_by: session.user.id,
       },
     });
-    return { updated, movement };
+    return { updated, movement, expense };
   });
 
-  try { revalidatePath("/inventory"); revalidatePath("/dashboard"); revalidatePath("/finance"); } catch {}
+  try { revalidatePath("/inventory"); revalidatePath("/dashboard"); revalidatePath("/finance"); revalidatePath("/expenses"); revalidatePath("/cashflow"); revalidatePath("/reports"); } catch {}
   return Response.json({
     item: { ...result.updated, current_stock: Number((result.updated as any).current_stock), average_cost: Number((result.updated as any).average_cost) },
     movement: { ...result.movement, quantity: Number((result.movement as any).quantity), unit_cost: result.movement.unit_cost != null ? Number((result.movement as any).unit_cost) : null },
+    expense: result.expense ? { id: result.expense.id, amount: Number(result.expense.amount), description: result.expense.description } : null,
   });
 }
