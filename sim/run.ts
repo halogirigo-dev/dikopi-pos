@@ -19,7 +19,7 @@
  * NOTE: this is a test harness. It must NOT change production logic.
  */
 import { PrismaClient } from "@prisma/client";
-import { getCogsVariance, computeRecipeCost } from "../src/lib/cogs";
+import { getCogsVariance } from "../src/lib/cogs";
 import { getFinancialKPI } from "../src/lib/finance";
 import assert from "assert";
 import { spawn } from "child_process";
@@ -50,23 +50,24 @@ const EXPECT = {
   liveAfter: {
     "Iced Latte": 6_671,
     "Iced Americano": 4_045, // 2940 + 375 + 450 + 280
-    Cappuccino: 4_464, // 2940 + 994.2858 + 450 + 280
-    Dikopispace: 7_896, // 2940 + 2485.7145 + 140 + 1800 + 450 + 280
-    "Kopi Susu (Legacy)": 8_793, // 2940 + 4142.8575 + 280 + 900 + 450 + 280
+    Cappuccino: 4_664, // 2940 + 16571.43*0.06 + 450 + 280
+    Dikopispace: 8_096, // 2940 + 2485.71 + 140 + 1800 + 450 + 280
+    "Kopi Susu (Legacy)": 8_993, // 2940 + 4142.86 + 280 + 900 + 450 + 280
   },
   status: {
     "Iced Latte": "OK",
     "Iced Americano": "OK",
     Cappuccino: "OK",
     Dikopispace: "OK",
-    "Kopi Susu (Legacy)": "DRIFT",
+    "Kopi Susu (Legacy)": "OK",
     "Black Peach": "NO_RECIPE",
   },
 
-  // Step 4 (CASH, then voided)
-  step4: { revenue: 75_000, cogs: 21_700, gross: 53_300, paid: 100_000, change: 25_000 }, // 2*6500+3700+5000
+  // P4 re-lock: COGS is now the LIVE recipe cost snapshotted at sale time (C).
+  // step4 = 2 Iced Latte + Americano + Cappuccino, live costs 6,671/4,045/4,664
+  step4: { revenue: 75_000, cogs: 22_051, gross: 52_949, paid: 100_000, change: 25_000 },
   // Step 5 (QRIS, completed)
-  step5: { revenue: 20_000, cogs: 6_500, gross: 13_500, paid: 20_000, change: 0 },
+  step5: { revenue: 20_000, cogs: 6_671, gross: 13_329, paid: 20_000, change: 0 },
 
   // expenses
   autoExpense: 2_220_000, // 320k (milk) + 1,900k (arabica)
@@ -75,9 +76,9 @@ const EXPECT = {
 
   // P&L / KPI (all-time, single-day DB)
   completedRevenue: 20_000, // step5 only (step4 voided)
-  completedCogs: 6_500,
-  grossProfit: 13_500,
-  netProfit: -3_311_500, // 13,500 - 3,325,000
+  completedCogs: 6_671,
+  grossProfit: 13_329,
+  netProfit: -3_311_671, // 13,329 - 3,325,000
   cashPosition: 1_695_000, // 5,000,000 + 20,000 - 3,325,000 + 0
 
   // DEFECT-1 regression (spec §5.2): insufficient stock must return 409 and
@@ -369,7 +370,7 @@ async function main() {
     // from prisma/seed.ts in this dev DB (duplicate names, unknown avgs).
     const FIXTURE = ["Iced Latte", "Iced Americano", "Cappuccino", "Dikopispace", "Kopi Susu (Legacy)", "Black Peach"];
     await record("Step2", "live Iced Latte BEFORE purchase == 6,885 (aligned from spec 7,245)", async () => {
-      const v = await getCogsVariance(10);
+      const v = await getCogsVariance();
       const latte = v.items.filter((i) => FIXTURE.includes(i.product_name)).find((i) => i.product_name === "Iced Latte")!;
       assert.strictEqual(latte.recipe_cost, EXPECT.latteLiveBefore, `live ${latte.recipe_cost}`);
       return latte.recipe_cost;
@@ -588,6 +589,16 @@ async function main() {
       assert.strictEqual(tx.change_amount, EXPECT.step5.change, `change ${tx.change_amount}`);
       return `rev ${tx.total_revenue} change ${tx.change_amount}`;
     });
+    // P4: the live recipe cost C is SNAPSHOT into the transaction item at sale
+    // time. This is the single-source of truth for historical COGS — a later
+    // cost change never rewrites it.
+    await record("Step5", "live C snapshotted into TransactionItem (immutability)", async () => {
+      const t5 = await prisma.transaction.findUniqueOrThrow({ where: { id: step5TxId }, include: { items: true } });
+      const item = t5.items[0];
+      assert.strictEqual(Number(item.cost_price), EXPECT.step5.cogs, `item.cost_price ${item.cost_price}`);
+      assert.strictEqual(Number(item.cogs), EXPECT.step5.cogs, `item.cogs ${item.cogs}`);
+      return `cost_price=${Number(item.cost_price)} cogs=${Number(item.cogs)} (live C snapshot)`;
+    });
     console.log("  Step 5 — QRIS sale verified");
   }
 
@@ -621,7 +632,7 @@ async function main() {
 
   // ============================================================ STEP 7 — drift check
   {
-    const v = await getCogsVariance(10);
+    const v = await getCogsVariance();
     // Scope to the fixture product set: getCogsVariance walks ALL Product rows,
     // and the live dev DB also contains products from prisma/seed.ts (e.g. a
     // second "Iced Americano" whose ingredient averages are unknown).
@@ -634,14 +645,16 @@ async function main() {
       assert.strictEqual(latte.recipe_cost, EXPECT.latteLiveAfter, `live ${latte.recipe_cost}`);
       return latte.recipe_cost;
     });
-    await record("Step7", "gap B-C for Iced Latte stays positive (stored<live, no flip)", async () => {
-      // stored 6,500; live 6,885 (pre-purchase) -> 6,671 (post-purchase):
-      // sign unchanged, gap shrinks 385 -> 171 (170.71 unrounded). Direction
-      // does NOT flip: a cheaper purchase pulls the weighted average down.
-      assert.ok(EXPECT.latteLiveBefore - 6_500 > 0, "gap before positive (live > stored)");
-      assert.ok(EXPECT.latteLiveAfter - 6_500 > 0, "gap after positive (live > stored)");
-      assert.ok(EXPECT.latteLiveAfter < EXPECT.latteLiveBefore, "direction: live DECREASED");
-      return `before ${EXPECT.latteLiveBefore - 6500} after ${Math.round(EXPECT.latteLiveAfterRaw - 6500)}`;
+    await record("Step7", "no unpriced costs: all fixture recipes fully priced", async () => {
+      // P4: Product no longer holds a manual HPP (B). Costing is single-source:
+      // live recipe cost C. The only non-OK states are NO_RECIPE and
+      // NO_STOCK_COST — every fixture product with a recipe is priced, so all
+      // five should be OK.
+      const unpriced = fxItems.filter((i) => i.status === "NO_STOCK_COST");
+      assert.strictEqual(unpriced.length, 0, `NO_STOCK_COST: ${unpriced.map((i) => i.product_name).join(",")}`);
+      const oks = fxItems.filter((i) => i.status === "OK");
+      assert.ok(oks.length === 5, `${oks.length} OK (want 5): ${JSON.stringify(fxItems.map((i) => i.product_name + ":" + i.status))}`);
+      return `${oks.length} OK, 0 NO_STOCK_COST`;
     });
     for (const name of ["Iced Americano", "Cappuccino", "Dikopispace"]) {
       // §10 status is the invariant; live cost drifts slightly with the
@@ -653,10 +666,10 @@ async function main() {
         return `${item.recipe_cost} (${item.status})`;
       });
     }
-    await record("Step7", "Kopi Susu (Legacy) status == DRIFT (aligned live 9,353 spec)", async () => {
+    await record("Step7", "Kopi Susu (Legacy) status == OK (no manual HPP to drift from)", async () => {
       const item = byName("Kopi Susu (Legacy)");
-      assert.strictEqual(item.status, "DRIFT", `legacy ${item.status}`);
-      return `${item.recipe_cost} diff ${item.diff}`;
+      assert.strictEqual(item.status, "OK", `legacy ${item.status}`);
+      return `${item.recipe_cost} (${item.status})`;
     });
     await record("Step7", "Black Peach status == NO_RECIPE", async () => {
       const item = byName("Black Peach");
@@ -670,8 +683,8 @@ async function main() {
       assert.ok(after < EXPECT.latteLiveBefore, `C ${after} did not decrease from ${EXPECT.latteLiveBefore}`);
       return `C ${after} < before ${EXPECT.latteLiveBefore}`;
     });
-    await record("Step7", "counts: drift>=1, noRecipe>=1 (fixture products)", async () => {
-      assert.ok(fxItems.some((i) => i.status === "DRIFT") && fxItems.some((i) => i.status === "NO_RECIPE"),
+    await record("Step7", "counts: noRecipe>=1 (fixture products)", async () => {
+      assert.ok(fxItems.some((i) => i.status === "NO_RECIPE"),
         JSON.stringify(fxItems.map((i) => i.product_name + ":" + i.status)));
       return JSON.stringify(fxItems.map((i) => i.product_name + ":" + i.status));
     });
@@ -798,17 +811,16 @@ async function main() {
       return "ok";
     });
 
-    // A/B/C: purchase moved A (milk) and C (live latte cost); B unchanged
-    await record("Invariant", "A/B/C separation (B unchanged by purchase)", async () => {
-      const latte = await prodBy("Iced Latte");
-      assert.strictEqual(latte!.cost_price, 6_500, `B moved to ${latte!.cost_price}`);
-      const v = await getCogsVariance(10);
+    // A/C: purchase moved A (milk avg) and C (live latte cost). B is retired —
+    // Product.cost_price is no longer written; Product has no manual HPP.
+    await record("Invariant", "A/C separation: purchase moves live cost C", async () => {
+      const v = await getCogsVariance();
       const c = v.items.find((i) => i.product_name === "Iced Latte")!.recipe_cost;
       // C must be within 1% of the §10 post-purchase value (consumption in
       // Steps 4-6 shifts averages slightly, so tolerate small drift)
       const cPct = Math.abs(c - EXPECT.latteLiveAfter) / EXPECT.latteLiveAfter;
       assert.ok(cPct < 0.01, `C ${c} deviates ${cPct.toFixed(3)} from §10 ${EXPECT.latteLiveAfter}`);
-      return `A changed, B=${latte!.cost_price} stable, C=${c} (≈${EXPECT.latteLiveAfter})`;
+      return `A changed, C=${c} (≈${EXPECT.latteLiveAfter})`;
     });
 
     // D. role gates
@@ -880,7 +892,7 @@ async function main() {
       });
       assert.strictEqual(mismatch.length, 0, `revenue/COGS mismatch in: ${mismatch.map((t) => t.invoice_number).join(", ")}`);
 
-      // F5: completed aggregates already proven by Step 9/10 (20,000 / 6,500)
+      // F5: completed aggregates already proven by Step 9/10 (20,000 / 6,671)
       return `${allTx.length} tx · ${invoices.length} unique invoices · ${seen.size} (tx×ingredient) SALE_CONSUMPTION cells, 0 dups/orphans · revenue/COGS per-line consistent`;
     });
   }

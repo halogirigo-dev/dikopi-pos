@@ -142,13 +142,13 @@ async function main() {
 
   // ---- 6. Sim products (spec §2.4/§2.5) ----------------------------------
   type Product = {
-    name: string; selling: number; cost: number;
+    name: string; selling: number;
     hpp_breakdown?: unknown;
     bom: Array<{ inv: string; qty: number }>; // empty => NO_RECIPE
   };
   const products: Product[] = [
     {
-      name: "Iced Latte", selling: 20000, cost: 6500,
+      name: "Iced Latte", selling: 20000,
       bom: [
         { inv: "Espresso Shot", qty: 1 },
         { inv: "Fresh Milk",    qty: 0.15 },
@@ -162,7 +162,7 @@ async function main() {
       // §2.5 stored HPP 4,500 was tuned for shot cost 3,300; with the aligned
       // fixture (shot 2,940) the live cost is 3,845, which needs stored HPP
       // 3,700 to keep the §2.5 status OK (Δ -3.8% < 10%).
-      name: "Iced Americano", selling: 18000, cost: 3700,
+      name: "Iced Americano", selling: 18000,
       bom: [
         { inv: "Espresso Shot", qty: 1 },
         { inv: "Ice",           qty: 0.15 },
@@ -171,7 +171,7 @@ async function main() {
       ],
     },
     {
-      name: "Cappuccino", selling: 17000, cost: 5000,
+      name: "Cappuccino", selling: 17000,
       bom: [
         { inv: "Espresso Shot", qty: 1 },
         { inv: "Fresh Milk",    qty: 0.06 },
@@ -180,7 +180,7 @@ async function main() {
       ],
     },
     {
-      name: "Dikopispace", selling: 17000, cost: 8500,
+      name: "Dikopispace", selling: 17000,
       bom: [
         { inv: "Espresso Shot", qty: 1 },
         { inv: "Fresh Milk",    qty: 0.15 },
@@ -191,7 +191,7 @@ async function main() {
       ],
     },
     {
-      name: "Kopi Susu (Legacy)", selling: 25000, cost: 12000,
+      name: "Kopi Susu (Legacy)", selling: 25000,
       bom: [
         { inv: "Espresso Shot", qty: 1 },
         { inv: "Fresh Milk",    qty: 0.25 },
@@ -202,7 +202,7 @@ async function main() {
       ],
     },
     {
-      name: "Black Peach", selling: 18000, cost: 6700,
+      name: "Black Peach", selling: 18000,
       bom: [], // NO_RECIPE fixture
     },
   ];
@@ -223,7 +223,6 @@ async function main() {
         name: p.name,
         category_id: coffeeCat.id,
         selling_price: p.selling,
-        cost_price: p.cost,
         hpp_breakdown: p.hpp_breakdown ?? undefined,
         is_available: true,
       },
