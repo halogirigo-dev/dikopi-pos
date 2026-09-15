@@ -7,48 +7,60 @@ function d(v: any): number {
   return Number(v);
 }
 
+export type RecipeCostDetail = {
+  total: number; // live HPP per unit of product, whole rupiah
+  hasUnpriced: boolean;
+  unpriced: Array<{ inventory_item_id: string; name: string; unit: string; quantity: number }>;
+};
+
+/**
+ * Live recipe HPP = Σ(ingredient quantity × current inventory average cost).
+ * Ingredients whose average_cost is 0/missing are NOT silently zeroed —
+ * they are reported in `unpriced` so the UI can flag them explicitly.
+ */
+export function computeRecipeCostDetail(
+  recipeItems: Array<{ inventory_item_id: string; quantity: any; inventory_item: { average_cost: any; name?: string; unit?: string } }>
+): RecipeCostDetail {
+  let sum = 0;
+  const unpriced: RecipeCostDetail["unpriced"] = [];
+  for (const ri of recipeItems) {
+    const qty = d(ri.quantity);
+    const avg = d(ri.inventory_item.average_cost);
+    if (avg > 0) {
+      sum += qty * avg;
+    } else if (qty > 0) {
+      unpriced.push({
+        inventory_item_id: ri.inventory_item_id,
+        name: ri.inventory_item.name || ri.inventory_item_id,
+        unit: ri.inventory_item.unit || "",
+        quantity: qty,
+      });
+    }
+  }
+  return { total: Math.round(sum), hasUnpriced: unpriced.length > 0, unpriced };
+}
+
+export function computeRecipeCost(
+  recipeItems: Array<{ inventory_item_id: string; quantity: any; inventory_item: { average_cost: any } }>
+): number {
+  return computeRecipeCostDetail(recipeItems).total;
+}
+
 export type CogsVariance = {
   product_id: string;
   product_name: string;
   category_name: string;
-  stored_cost: number;
   recipe_cost: number;
-  overhead_cost: number;
-  total_recipe_cost: number;
-  diff: number;
-  diffPct: number | null;
+  hasUnpriced: boolean;
+  unpriced: Array<{ inventory_item_id: string; name: string; unit: string; quantity: number }>;
+  recipe_items: Array<{ inventory_item_id: string; name: string; unit: string; quantity: number; average_cost: number; cost: number; unpriced: boolean }>;
   has_recipe: boolean;
-  recipe_items: Array<{ inventory_item_id: string; name: string; unit: string; quantity: number; average_cost: number; cost: number }>;
-  status: "OK" | "DRIFT" | "NO_RECIPE" | "NO_STOCK_COST";
+  status: "OK" | "NO_RECIPE" | "NO_STOCK_COST";
 };
 
-export function computeRecipeCost(
-  recipeItems: Array<{ quantity: any; inventory_item: { average_cost: any } }>
-): number {
-  let sum = 0;
-  for (const ri of recipeItems) {
-    const qty = d(ri.quantity);
-    const avg = d(ri.inventory_item.average_cost);
-    sum += qty * avg;
-  }
-  return Math.round(sum);
-}
-
-function parseOverhead(hpp_breakdown: any): number {
-  if (!hpp_breakdown) return 0;
-  try {
-    const arr = typeof hpp_breakdown === "string" ? JSON.parse(hpp_breakdown) : hpp_breakdown;
-    if (!Array.isArray(arr)) return 0;
-    return arr.reduce((s: number, b: any) => s + (Number(b.cost) || 0), 0);
-  } catch {
-    return 0;
-  }
-}
-
-export async function getCogsVariance(thresholdPct = 10): Promise<{
+export async function getCogsVariance(): Promise<{
   items: CogsVariance[];
-  counts: { total: number; ok: number; drift: number; noRecipe: number };
-  driftTotalDiff: number;
+  counts: { total: number; ok: number; noRecipe: number; noCost: number };
 }> {
   const products = await prisma.product.findMany({
     include: { category: true, recipeItems: { include: { inventory_item: true } } },
@@ -57,74 +69,62 @@ export async function getCogsVariance(thresholdPct = 10): Promise<{
 
   const items: CogsVariance[] = [];
   for (const p of products) {
-    const recipeCost = computeRecipeCost(p.recipeItems as any);
-    const overhead = 0; // overhead is part of stored_cost, not auto; we compare stored vs pure recipe
-    // For variance, compare stored_cost vs recipe_cost (when recipe exists)
-    // If product has no recipe, status NO_RECIPE
-    const hasRecipe = p.recipeItems.length > 0;
-    const hasStockCost = hasRecipe ? p.recipeItems.every((ri: any) => d(ri.inventory_item.average_cost) > 0) : false;
+    const recipeItems = p.recipeItems as any[];
+    const detail = computeRecipeCostDetail(
+      recipeItems.map((ri) => ({
+        inventory_item_id: ri.inventory_item_id,
+        quantity: ri.quantity,
+        inventory_item: ri.inventory_item,
+      }))
+    );
+    const hasRecipe = recipeItems.length > 0;
+    const allPriced = hasRecipe && !detail.hasUnpriced;
 
-    let status: CogsVariance["status"] = "OK";
-    let diff = 0;
-    let diffPct: number | null = null;
+    let status: CogsVariance["status"];
+    if (!hasRecipe) status = "NO_RECIPE";
+    else if (allPriced && detail.total > 0) status = "OK";
+    else if (allPriced && detail.total === 0) status = "NO_STOCK_COST";
+    else status = "NO_STOCK_COST"; // recipe exists but some ingredients have no cost
 
-    if (!hasRecipe) {
-      status = "NO_RECIPE";
-    } else if (!hasStockCost && recipeCost === 0) {
-      status = "NO_STOCK_COST";
-    } else {
-      diff = p.cost_price - recipeCost;
-      diffPct = recipeCost > 0 ? (diff / recipeCost) * 100 : null;
-      const absPct = diffPct != null ? Math.abs(diffPct) : 0;
-      // Also check relative to stored_cost for UI stability when recipeCost small
-      const altPct = p.cost_price > 0 ? Math.abs(diff / p.cost_price) * 100 : absPct;
-      const usePct = Math.min(absPct, altPct);
-      // If either representation exceeds threshold -> drift
-      if (recipeCost > 0 && (Math.abs(diffPct!) > thresholdPct || usePct > thresholdPct)) {
-        status = "DRIFT";
-      } else if (recipeCost === 0 && p.cost_price > 0) {
-        status = "DRIFT";
-      }
-    }
-
-    const recipe_items = p.recipeItems.map((ri: any) => ({
-      inventory_item_id: ri.inventory_item_id,
-      name: ri.inventory_item.name,
-      unit: ri.inventory_item.unit,
-      quantity: d(ri.quantity),
-      average_cost: d(ri.inventory_item.average_cost),
-      cost: d(ri.quantity) * d(ri.inventory_item.average_cost),
-    }));
+    const recipe_rows = recipeItems.map((ri: any) => {
+      const avg = d(ri.inventory_item.average_cost);
+      const qty = d(ri.quantity);
+      return {
+        inventory_item_id: ri.inventory_item_id,
+        name: ri.inventory_item.name,
+        unit: ri.inventory_item.unit,
+        quantity: qty,
+        average_cost: avg,
+        cost: Math.round(qty * avg * 100) / 100,
+        unpriced: qty > 0 && avg <= 0,
+      };
+    });
 
     items.push({
       product_id: p.id,
       product_name: p.name,
       category_name: p.category.name,
-      stored_cost: p.cost_price,
-      recipe_cost: recipeCost,
-      overhead_cost: parseOverhead(p.hpp_breakdown),
-      total_recipe_cost: recipeCost,
-      diff,
-      diffPct,
+      recipe_cost: detail.total,
+      hasUnpriced: detail.hasUnpriced,
+      unpriced: detail.unpriced,
+      recipe_items: recipe_rows,
       has_recipe: hasRecipe,
-      recipe_items,
       status,
     });
   }
 
-  // Sort drift first, then no recipe, then ok
-  const rank: Record<string, number> = { DRIFT: 0, NO_RECIPE: 1, NO_STOCK_COST: 2, OK: 3 };
-  items.sort((a, b) => rank[a.status] - rank[b.status] || Math.abs(b.diff) - Math.abs(a.diff));
+  // No-recipe first, then partially priced, then fully priced
+  const rank: Record<string, number> = { NO_RECIPE: 0, NO_STOCK_COST: 1, OK: 2 };
+  items.sort((a, b) => rank[a.status] - rank[b.status] || a.product_name.localeCompare(b.product_name));
 
   const counts = {
     total: items.length,
     ok: items.filter((i) => i.status === "OK").length,
-    drift: items.filter((i) => i.status === "DRIFT").length,
     noRecipe: items.filter((i) => i.status === "NO_RECIPE").length,
+    noCost: items.filter((i) => i.status === "NO_STOCK_COST").length,
   };
-  const driftTotalDiff = items.filter((i) => i.status === "DRIFT").reduce((s, i) => s + Math.abs(i.diff), 0);
 
-  return { items, counts, driftTotalDiff };
+  return { items, counts };
 }
 
 export async function getCogsByCategory(from: Date, to: Date) {
@@ -167,7 +167,7 @@ export async function getCogsHealth(period: string, from: Date, to: Date) {
     getFinancialKPI(from, to),
     getSalesReport(from, to),
     getProductPerformance(from, to),
-    getCogsVariance(10).catch(() => ({ items: [], counts: { total: 0, ok: 0, drift: 0, noRecipe: 0 }, driftTotalDiff: 0 })),
+    getCogsVariance().catch(() => ({ items: [], counts: { total: 0, ok: 0, noRecipe: 0, noCost: 0 } })),
     getCogsByCategory(from, to).catch(() => []),
   ]);
 

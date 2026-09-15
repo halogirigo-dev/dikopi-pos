@@ -16,7 +16,7 @@ export async function GET(req: Request) {
   const view = searchParams.get("view") || "health";
 
   if (view === "variance") {
-    const v = await getCogsVariance(10);
+    const v = await getCogsVariance();
     return Response.json(v);
   }
 

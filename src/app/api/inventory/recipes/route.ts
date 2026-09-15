@@ -18,10 +18,10 @@ export async function GET(req: Request) {
   }
   const items = await prisma.recipeItem.findMany({
     where: { product_id },
-    include: { inventory_item: { select: { id: true, name: true, unit: true, current_stock: true, sku: true } } },
+    include: { inventory_item: { select: { id: true, name: true, unit: true, current_stock: true, average_cost: true, sku: true } } },
     orderBy: { created_at: "asc" },
   });
-  return Response.json(items.map((r: any) => ({ ...r, quantity: Number(r.quantity), inventory_item: { ...r.inventory_item, current_stock: Number(r.inventory_item.current_stock) } })));
+  return Response.json(items.map((r: any) => ({ ...r, quantity: Number(r.quantity), inventory_item: { ...r.inventory_item, current_stock: Number(r.inventory_item.current_stock), average_cost: Number(r.inventory_item.average_cost) } })));
 }
 
 export async function PUT(req: Request) {
@@ -55,7 +55,7 @@ export async function PUT(req: Request) {
             inventory_item_id: it.inventory_item_id,
             quantity: Number(it.quantity),
           },
-          include: { inventory_item: { select: { id: true, name: true, unit: true, sku: true, current_stock: true } } },
+          include: { inventory_item: { select: { id: true, name: true, unit: true, sku: true, current_stock: true, average_cost: true } } },
         })
       )
     );
@@ -63,5 +63,5 @@ export async function PUT(req: Request) {
   });
 
   try { revalidatePath("/inventory"); revalidatePath("/products"); revalidatePath("/pos"); } catch {}
-  return Response.json(result.map((r: any) => ({ ...r, quantity: Number(r.quantity), inventory_item: { ...r.inventory_item, current_stock: Number(r.inventory_item.current_stock) } })));
+  return Response.json(result.map((r: any) => ({ ...r, quantity: Number(r.quantity), inventory_item: { ...r.inventory_item, current_stock: Number(r.inventory_item.current_stock), average_cost: Number(r.inventory_item.average_cost) } })));
 }
