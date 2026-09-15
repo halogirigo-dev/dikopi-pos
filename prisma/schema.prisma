@@ -74,7 +74,10 @@ model Product {
   category      Category     @relation(fields: [category_id], references: [id])
   name          String
   selling_price Int
-  cost_price    Int
+  // DEPRECATED — retired as a costing source (P3). Product HPP is now the live
+  // recipe cost, snapshotted into TransactionItem at sale time. Column kept
+  // (nullable) for historical back-compat; new products never write it.
+  cost_price    Int?
   hpp_breakdown Json?
   image_url     String?
   is_available  Boolean      @default(true)
@@ -91,6 +94,10 @@ model InventoryItem {
   id            String          @id @default(cuid())
   name          String          @unique
   sku           String?         @unique
+  // Base/smallest unit of record (g, ml, pcs, shot). Quantities, stock and
+  // average_cost are always stored in this unit. Purchases entered in a larger
+  // unit are converted to base at the receiving boundary (inventory/purchase
+  // route); average_cost stays per base unit.
   unit          String
   current_stock Decimal         @default(0) @db.Decimal(12, 3)
   minimum_stock Decimal         @default(0) @db.Decimal(12, 3)
