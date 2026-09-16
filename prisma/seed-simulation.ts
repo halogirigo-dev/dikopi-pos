@@ -76,21 +76,27 @@ async function main() {
   // non-purchased items to the §10 values (opening STOCK from §2.2 unchanged,
   // so Steps 1/3/4 consumption still work). This is a documented
   // expectation-mismatch reconciliation, not a production change.
+  // Spec §2.2 listed opening avgs in kg/liter units; per the base-unit lock
+  // (smallest unit is the unit of record) the fixture now stores BASE units:
+  // kg -> g, liter -> ml. Quantities are ×1000, average costs are ÷1000
+  // (per g / per ml). Monetary values (expenses, cash, P&L) are unaffected.
   const items: Item[] = [
     // Bean opening avgs deliberately differ from §2.2 (200k/150k): §10/§5.2
     // require the opening-blend shot cost to be exactly 3,300
     // (0.012×a + 0.006×b = 3,300) AND Arabica's post-purchase average to be
     // exactly 190,740.74 ((0.8×a + 10×190,000)/10.8). Both hold only for
     // a = 180,000, b = 130,000. This is a documented fixture adjustment.
-    { name: "Arabica Beans", sku: "BEAN-ARB", unit: "kg",     type: "BASE",        stock: 2,     avg: 180000, min: 1,   target: 5   },
-    { name: "Robusta Beans", sku: "BEAN-ROB", unit: "kg",     type: "BASE",        stock: 2,     avg: 130000, min: 1,   target: 5   },
-    { name: "Fresh Milk",    sku: "MILK-01",  unit: "liter",  type: "BASE",        stock: 8,     avg: 18000,  min: 4,   target: 12  },
-    { name: "Gula Aren",     sku: "GULA-REN", unit: "kg",     type: "BASE",        stock: 2,     avg: 14000,  min: 1,   target: 5   },
-    { name: "Ice",           sku: "ICE-01",   unit: "kg",     type: "BASE",        stock: 10,    avg: 2500,   min: 4,   target: 15  },
-    { name: "Serving Cup",   sku: "CUP-10",   unit: "pcs",    type: "BASE",        stock: 200,   avg: 450,    min: 100, target: 300 },
-    { name: "Cup Lid",       sku: "LID-10",   unit: "pcs",    type: "BASE",        stock: 200,   avg: 280,    min: 100, target: 300 },
-    { name: "Espresso Shot", sku: "ESP-SHOT", unit: "shot",   type: "SEMI_FINISH", stock: 0,     avg: 0,      min: 20,  target: 100 },
-    { name: "Cream",         sku: "CREAM-01", unit: "liter",  type: "BASE",        stock: 2,     avg: 18000,  min: 1,   target: 4   },
+    // Base units: per-kg avgs become per-g avgs (180,000 -> 180, 130,000 -> 130);
+    // blending BOM per shot becomes 12 g + 6 g.
+    { name: "Arabica Beans", sku: "BEAN-ARB", unit: "g",      type: "BASE",        stock: 2000,    avg: 180,    min: 1000,   target: 5000  },
+    { name: "Robusta Beans", sku: "BEAN-ROB", unit: "g",      type: "BASE",        stock: 2000,    avg: 130,    min: 1000,   target: 5000  },
+    { name: "Fresh Milk",    sku: "MILK-01",  unit: "ml",     type: "BASE",        stock: 8000,    avg: 18,     min: 4000,   target: 12000 },
+    { name: "Gula Aren",     sku: "GULA-REN", unit: "g",      type: "BASE",        stock: 2000,    avg: 14,     min: 1000,   target: 5000  },
+    { name: "Ice",           sku: "ICE-01",   unit: "g",      type: "BASE",        stock: 10000,   avg: 2.5,    min: 4000,   target: 15000 },
+    { name: "Serving Cup",   sku: "CUP-10",   unit: "pcs",    type: "BASE",        stock: 200,     avg: 450,    min: 100,    target: 300   },
+    { name: "Cup Lid",       sku: "LID-10",   unit: "pcs",    type: "BASE",        stock: 200,     avg: 280,    min: 100,    target: 300   },
+    { name: "Espresso Shot", sku: "ESP-SHOT", unit: "shot",   type: "SEMI_FINISH", stock: 0,       avg: 0,      min: 20,     target: 100   },
+    { name: "Cream",         sku: "CREAM-01", unit: "ml",     type: "BASE",        stock: 2000,    avg: 18,     min: 1000,   target: 4000  },
   ];
 
   const createdItems: Record<string, string> = {};
@@ -124,17 +130,18 @@ async function main() {
   }
 
   // ---- 5. Blending recipe (spec §2.3) — Espresso Shot ---------------------
+  // Base units: 1 shot = 12 g arabica + 6 g robusta (was 0.012/0.006 kg).
   await prisma.inventoryRecipe.createMany({
     data: [
       {
         output_item_id: createdItems["Espresso Shot"],
         input_item_id: createdItems["Arabica Beans"],
-        quantity: 0.012,
+        quantity: 12,
       },
       {
         output_item_id: createdItems["Espresso Shot"],
         input_item_id: createdItems["Robusta Beans"],
-        quantity: 0.006,
+        quantity: 6,
       },
     ],
     skipDuplicates: true,
@@ -151,9 +158,9 @@ async function main() {
       name: "Iced Latte", selling: 20000,
       bom: [
         { inv: "Espresso Shot", qty: 1 },
-        { inv: "Fresh Milk",    qty: 0.15 },
-        { inv: "Gula Aren",     qty: 0.01 },
-        { inv: "Ice",           qty: 0.15 },
+        { inv: "Fresh Milk",    qty: 150 },
+        { inv: "Gula Aren",     qty: 10 },
+        { inv: "Ice",           qty: 150 },
         { inv: "Serving Cup",   qty: 1 },
         { inv: "Cup Lid",       qty: 1 },
       ],
@@ -165,7 +172,7 @@ async function main() {
       name: "Iced Americano", selling: 18000,
       bom: [
         { inv: "Espresso Shot", qty: 1 },
-        { inv: "Ice",           qty: 0.15 },
+        { inv: "Ice",           qty: 150 },
         { inv: "Serving Cup",   qty: 1 },
         { inv: "Cup Lid",       qty: 1 },
       ],
@@ -174,7 +181,7 @@ async function main() {
       name: "Cappuccino", selling: 17000,
       bom: [
         { inv: "Espresso Shot", qty: 1 },
-        { inv: "Fresh Milk",    qty: 0.06 },
+        { inv: "Fresh Milk",    qty: 60 },
         { inv: "Serving Cup",   qty: 1 },
         { inv: "Cup Lid",       qty: 1 },
       ],
@@ -183,9 +190,9 @@ async function main() {
       name: "Dikopispace", selling: 17000,
       bom: [
         { inv: "Espresso Shot", qty: 1 },
-        { inv: "Fresh Milk",    qty: 0.15 },
-        { inv: "Gula Aren",     qty: 0.01 },
-        { inv: "Cream",         qty: 0.10 },
+        { inv: "Fresh Milk",    qty: 150 },
+        { inv: "Gula Aren",     qty: 10 },
+        { inv: "Cream",         qty: 100 },
         { inv: "Serving Cup",   qty: 1 },
         { inv: "Cup Lid",       qty: 1 },
       ],
@@ -194,9 +201,9 @@ async function main() {
       name: "Kopi Susu (Legacy)", selling: 25000,
       bom: [
         { inv: "Espresso Shot", qty: 1 },
-        { inv: "Fresh Milk",    qty: 0.25 },
-        { inv: "Gula Aren",     qty: 0.02 },
-        { inv: "Cream",         qty: 0.05 },
+        { inv: "Fresh Milk",    qty: 250 },
+        { inv: "Gula Aren",     qty: 20 },
+        { inv: "Cream",         qty: 50 },
         { inv: "Serving Cup",   qty: 1 },
         { inv: "Cup Lid",       qty: 1 },
       ],
@@ -255,7 +262,7 @@ async function main() {
   console.log("[seed-simulation] fixture ready.");
   console.log("  items:  ", Object.keys(createdItems).length);
   console.log("  products:", Object.keys(createdProducts).length);
-  console.log("  Espresso Shot blending recipe rows: 2 (Arabica 0.012 kg + Robusta 0.006 kg)");
+    console.log("  Espresso Shot blending recipe rows: 2 (Arabica 12 g + Robusta 6 g)");
 
   await prisma.$disconnect();
 }

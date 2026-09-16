@@ -37,20 +37,21 @@ const EXPECT = {
   openingBalance: 5_000_000,
 
   // post-purchase weighted averages (2 dp, as the purchase route stores them)
-  milkAvgAfter: 16_571.43, // (8*18000 + 20*16000)/28 = 16571.4286 -> 16571.43 (spec §2.7)
-  arabicaAvgAfter: 189_259.26, // ((2-1.2)*180000 + 10*190000)/10.8 = 1892592.59/10.8 (aligned fixture)
-  shotAvg: 2_940, // 0.012*180000 + 0.006*130000 = 2160 + 780 (fixture bean avgs 180k/130k)
+  milkAvgAfter: 16.57, // (8000*18 + 20000*16)/28 = 464000/28 = 16.5714... -> 16.57 (per ml, base unit)
+  arabicaAvgAfter: 189.26, // ((2000-1200)*180 + 10000*190)/10800 (per g, base unit)
+  shotAvg: 2_940, // 12*180 + 6*130 = 2160 + 780 (g × Rp/g; fixture bean avgs 180/130)
 
-  // live recipe cost of Iced Latte (recomputed for the aligned fixture)
-  latteLiveBefore: 6_885, // 2940 + 18000*0.15 + 14000*0.01 + 2500*0.15 + 450 + 280
-  latteLiveAfterRaw: 6_670.71, // 2940 + 16571.43*0.15 + 140 + 375 + 450 + 280
-  latteLiveAfter: 6_671, // round(6670.71)
+  // live recipe cost of Iced Latte (recomputed for the aligned fixture;
+  // base units: ml × Rp/ml, g × Rp/g — 150 ml milk, 10 g gula, 150 g ice)
+  latteLiveBefore: 6_885, // 2940 + 18*150 + 14*10 + 2.5*150 + 450 + 280
+  latteLiveAfterRaw: 6_670.5, // 2940 + 16.5714*150 + 140 + 375 + 450 + 280
+  latteLiveAfter: 6_671, // round(6670.5)
 
   // §10 statuses + post-purchase live costs (recomputed for the aligned fixture)
   liveAfter: {
     "Iced Latte": 6_671,
     "Iced Americano": 4_045, // 2940 + 375 + 450 + 280
-    Cappuccino: 4_664, // 2940 + 16571.43*0.06 + 450 + 280
+    Cappuccino: 4_664, // 2940 + 16.5714*60 + 450 + 280
     Dikopispace: 8_096, // 2940 + 2485.71 + 140 + 1800 + 450 + 280
     "Kopi Susu (Legacy)": 8_993, // 2940 + 4142.86 + 280 + 900 + 450 + 280
   },
@@ -89,8 +90,9 @@ const EXPECT = {
   // Live recipe cost C evaluated at Step 7 (AFTER Steps 4-6 sale/consumption).
   // The §10 table in the spec is defined at the post-purchase, pre-sale
   // moment; after consumption the live cost shifts slightly (e.g. Iced
-  // Latte 6,671 -> 6,673 because ice/cup/lid averages get weighted by the
-  // consumed stock). Step 7 therefore asserts:
+  // Latte 6,671 -> 6,668 after Steps 4-6 consumption lowers the
+  // milk/gula/ice/cup/lid averages below their opening values). Step 7
+  // therefore asserts:
   //   - status (the §10 invariant), and
   //   - "C follows A" directionally (decrease), and
   //   - an approximate value within ±0.5% of the §10 table value.
@@ -315,8 +317,8 @@ async function main() {
       const r = await api(admin, "PUT", "/api/inventory/semi-recipes", {
         output_item_id: I.Shot,
         items: [
-          { input_item_id: I.Arabica, quantity: 0.012 },
-          { input_item_id: I.Robusta, quantity: 0.006 },
+          { input_item_id: I.Arabica, quantity: 12 }, // 12 g per shot (was 0.012 kg)
+          { input_item_id: I.Robusta, quantity: 6 },  // 6 g per shot (was 0.006 kg)
         ],
       });
       assert.strictEqual(r.status, 200, `semi-recipes ${r.status} ${r.text}`);
@@ -332,16 +334,16 @@ async function main() {
       assert.strictEqual(r.json.unit_cost, EXPECT.shotAvg, `unit_cost ${r.json.unit_cost}`);
       return `unit_cost=${r.json.unit_cost}`;
     });
-    await record("Step1", "shot avg == 3,300 (blended)", async () => {
+    await record("Step1", "shot avg == 2,940 (blended: 12 g × 180 + 6 g × 130)", async () => {
       const avg = await getAvg(I.Shot);
       assert.strictEqual(avg, EXPECT.shotAvg);
       return avg;
     });
-    await record("Step1", "beans reduced (Arabica -1.2, Robusta -0.6)", async () => {
-      const arb = await getStock(I.Arabica); // 2.0 - 1.2 = 0.8
-      const rob = await getStock(I.Robusta); // 2.0 - 0.6 = 1.4
-      assert.ok(approxEq(arb, 0.8), `arabica ${arb}`);
-      assert.ok(approxEq(rob, 1.4), `robusta ${rob}`);
+    await record("Step1", "beans reduced (Arabica -1200 g, Robusta -600 g)", async () => {
+      const arb = await getStock(I.Arabica); // 2000 - 1200 = 800
+      const rob = await getStock(I.Robusta); // 2000 - 600 = 1400
+      assert.ok(approxEq(arb, 800), `arabica ${arb}`);
+      assert.ok(approxEq(rob, 1400), `robusta ${rob}`);
       return `arb ${arb} rob ${rob}`;
     });
     await record("Step1", "shot stock == 100", async () => {
@@ -357,15 +359,15 @@ async function main() {
       assert.strictEqual(r.status, 409, `expected 409 got ${r.status}`);
       return r.status;
     });
-    console.log("  Step 1 — blend (100 shots @ 3,300) verified");
+    console.log("  Step 1 — blend (100 shots @ 2,940) verified");
   }
 
   // ============================================================ STEP 2 — purchase + auto-expense
   {
     // capture "before" live cost of Iced Latte (post-Step-1, pre-purchase).
     // Fixture sets non-purchased items' opening avgs to the §10 values
-    // (gula 14,000 / ice 2,500 / cup 450 / lid 280) and milk at 18,000:
-    //   3,300 + 18,000*0.15 + 14,000*0.01 + 2,500*0.15 + 450 + 280 = 7,245
+    // (gula 14 Rp/g / ice 2.5 Rp/g / cup 450 / lid 280) and milk at 18 Rp/ml:
+    //   2,940 + 18*150 + 14*10 + 2.5*150 + 450 + 280 = 6,885
     // NOTE: scoped to fixture products — getCogsVariance also walks products
     // from prisma/seed.ts in this dev DB (duplicate names, unknown avgs).
     const FIXTURE = ["Iced Latte", "Iced Americano", "Cappuccino", "Dikopispace", "Kopi Susu (Legacy)", "Black Peach"];
@@ -376,22 +378,22 @@ async function main() {
       return latte.recipe_cost;
     });
 
-    await record("Step2", "POST /inventory/purchase milk 20L@16000", async () => {
+    await record("Step2", "POST /inventory/purchase milk 20000ml@16", async () => {
       const r = await api(admin, "POST", "/api/inventory/purchase", {
         inventory_item_id: I.Milk,
-        quantity: 20,
-        unit_cost: 16_000,
+        quantity: 20000,
+        unit_cost: 16,
       });
       assert.strictEqual(r.status, 200, `purchase milk ${r.status} ${r.text}`);
       assert.ok(r.json.expense?.id, "auto-expense created for milk");
       assert.strictEqual(r.json.expense.amount, 320_000, `milk expense ${r.json.expense.amount}`);
       return `avg ${r.json.item.average_cost} exp ${r.json.expense.amount}`;
     });
-    await record("Step2", "POST /inventory/purchase arabica 10kg@190000", async () => {
+    await record("Step2", "POST /inventory/purchase arabica 10000g@190", async () => {
       const r = await api(admin, "POST", "/api/inventory/purchase", {
         inventory_item_id: I.Arabica,
-        quantity: 10,
-        unit_cost: 190_000,
+        quantity: 10000,
+        unit_cost: 190,
       });
       assert.strictEqual(r.status, 200, `purchase arabica ${r.status} ${r.text}`);
       assert.strictEqual(r.json.expense.amount, 1_900_000, `arabica expense ${r.json.expense.amount}`);
@@ -401,17 +403,17 @@ async function main() {
     // Raw-Material expense below; scratch sale + its void were already netted
     // out in Step 4.
     // weighted-average precision assertions
-    await record("Step2", "milk avg after == 16,571.43 (2dp, NOT 16,571)", async () => {
+    await record("Step2", "milk avg after == 16.57 (2dp, NOT 16.5714 truncated to 16.570)", async () => {
       const avg = await getAvg(I.Milk);
       assert.strictEqual(avg, EXPECT.milkAvgAfter, `milk avg ${avg}`);
       return avg;
     });
-    await record("Step2", "arabica avg after == 189,259.26 (aligned)", async () => {
+    await record("Step2", "arabica avg after == 189.26 (aligned)", async () => {
       const avg = await getAvg(I.Arabica);
       assert.strictEqual(avg, EXPECT.arabicaAvgAfter, `arabica avg ${avg}`);
       return avg;
     });
-    await record("Step2", "shot avg UNCHANGED after purchase (== 3,300)", async () => {
+    await record("Step2", "shot avg UNCHANGED after purchase (== 2,940)", async () => {
       const avg = await getAvg(I.Shot);
       assert.strictEqual(avg, EXPECT.shotAvg, `shot avg moved to ${avg}`);
       return avg;
@@ -439,34 +441,34 @@ async function main() {
 
   // ============================================================ STEP 3 — waste / adjust
   {
-    await record("Step3", "WASTE gula 0.2kg -> stock -0.2", async () => {
-      const before = await getStock(I.Gula); // 2.0 (unchanged by earlier steps)
+    await record("Step3", "WASTE gula 200 g -> stock -200", async () => {
+      const before = await getStock(I.Gula); // 2000 g (unchanged by earlier steps)
       const r = await api(admin, "POST", "/api/inventory/adjustment", {
         inventory_item_id: I.Gula,
-        quantity: 0.2,
+        quantity: 200,
         type: "WASTE",
       });
       assert.strictEqual(r.status, 200, `waste ${r.status} ${r.text}`);
       const after = await getStock(I.Gula);
-      assert.ok(approxEq(after, before - 0.2), `gula ${before}->${after}`);
+      assert.ok(approxEq(after, before - 200), `gula ${before}->${after}`);
       return after;
     });
-    await record("Step3", "ADJUSTMENT +0.1 gula -> stock +0.1", async () => {
+    await record("Step3", "ADJUSTMENT +100 g gula -> stock +100", async () => {
       const before = await getStock(I.Gula);
       const r = await api(admin, "POST", "/api/inventory/adjustment", {
         inventory_item_id: I.Gula,
-        quantity: 0.1,
+        quantity: 100,
         type: "ADJUSTMENT",
       });
       assert.strictEqual(r.status, 200, `adjust ${r.status} ${r.text}`);
       const after = await getStock(I.Gula);
-      assert.ok(approxEq(after, before + 0.1), `gula ${before}->${after}`);
+      assert.ok(approxEq(after, before + 100), `gula ${before}->${after}`);
       return after;
     });
     await record("Step3", "waste-overflow guard -> 400 (NEGATIVE_STOCK)", async () => {
       const r = await api(admin, "POST", "/api/inventory/adjustment", {
         inventory_item_id: I.Gula,
-        quantity: 999,
+        quantity: 9_999_999, // far beyond any stock
         type: "WASTE",
       });
       assert.strictEqual(r.status, 400, `expected 400 got ${r.status}`);
@@ -819,7 +821,7 @@ async function main() {
       // C must be within 1% of the §10 post-purchase value (consumption in
       // Steps 4-6 shifts averages slightly, so tolerate small drift)
       const cPct = Math.abs(c - EXPECT.latteLiveAfter) / EXPECT.latteLiveAfter;
-      assert.ok(cPct < 0.01, `C ${c} deviates ${cPct.toFixed(3)} from §10 ${EXPECT.latteLiveAfter}`);
+      assert.ok(cPct < 0.005, `C ${c} deviates ${(cPct*100).toFixed(3)}% from ${EXPECT.latteLiveAfter}`);
       return `A changed, C=${c} (≈${EXPECT.latteLiveAfter})`;
     });
 
