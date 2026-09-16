@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "seed:simulation": "tsx prisma/seed-simulation.ts",
+    "seed:master": "tsx prisma/seed-master.ts",
     "sim": "tsx sim/run.ts",
     "sim:reset": "tsx sim/run.ts --reset",
     "build": "prisma generate && next build",
