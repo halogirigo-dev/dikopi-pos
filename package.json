@@ -7,6 +7,8 @@
     "seed:simulation": "tsx prisma/seed-simulation.ts",
     "seed:master": "tsx prisma/seed-master.ts",
     "seed:refresh": "tsx prisma/seed-refresh-products.ts",
+    "seed:refresh": "tsx prisma/seed-refresh-products.ts",
+    "seed:refresh": "tsx prisma/seed-refresh-products.ts",
     "sim": "tsx sim/run.ts",
     "sim:reset": "tsx sim/run.ts --reset",
     "build": "prisma generate && next build",
